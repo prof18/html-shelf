@@ -25,6 +25,54 @@ export const normalizePath = (path: string): string =>
     .replace(/\/+/g, "/")
     .replace(/^\/|\/$/g, "");
 
+const applyElementOptions = (
+  element: HTMLElement,
+  options?:
+    string | { cls?: string; text?: string; attr?: Record<string, string> },
+): void => {
+  if (typeof options === "string") element.className = options;
+  else if (options) {
+    if (options.cls) element.className = options.cls;
+    if (options.text) element.textContent = options.text;
+    for (const [name, value] of Object.entries(options.attr ?? {})) {
+      element.setAttribute(name, value);
+    }
+  }
+};
+
+Object.defineProperties(HTMLElement.prototype, {
+  empty: {
+    value(this: HTMLElement): void {
+      this.replaceChildren();
+    },
+  },
+  createDiv: {
+    value(
+      this: HTMLElement,
+      options?:
+        string | { cls?: string; text?: string; attr?: Record<string, string> },
+    ): HTMLDivElement {
+      const element = document.createElement("div");
+      applyElementOptions(element, options);
+      this.append(element);
+      return element;
+    },
+  },
+  createEl: {
+    value(
+      this: HTMLElement,
+      tag: keyof HTMLElementTagNameMap,
+      options?:
+        string | { cls?: string; text?: string; attr?: Record<string, string> },
+    ): HTMLElement {
+      const element = document.createElement(tag);
+      applyElementOptions(element, options);
+      this.append(element);
+      return element;
+    },
+  },
+});
+
 const hasOff = (value: unknown): value is { off: () => void } =>
   typeof value === "object" &&
   value !== null &&

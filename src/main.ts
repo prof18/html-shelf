@@ -7,7 +7,10 @@ import { VIEW_TYPE_SHELF } from "./views/view-types";
 export default class HtmlShelfPlugin extends Plugin {
   onload(): void {
     const index = new ShelfIndex(this.app, () => DEFAULT_SETTINGS);
-    this.registerView(VIEW_TYPE_SHELF, (leaf) => new ShelfView(leaf, index));
+    this.registerView(
+      VIEW_TYPE_SHELF,
+      (leaf) => new ShelfView(leaf, index, () => DEFAULT_SETTINGS),
+    );
     this.addRibbonIcon("library", "Open HTML shelf", () =>
       this.activateShelf(),
     );

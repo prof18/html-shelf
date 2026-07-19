@@ -1,5 +1,5 @@
 import type { App, WorkspaceLeaf as RealWorkspaceLeaf } from "obsidian";
-import { TFile as MockTFile, WorkspaceLeaf } from "./obsidian";
+import { FileView, TFile as MockTFile, WorkspaceLeaf } from "./obsidian";
 
 export interface FakeFileInput {
   path: string;
@@ -11,6 +11,7 @@ export interface FakeAppHarness {
   app: App;
   leaves: WorkspaceLeaf[];
   revealedLeaves: WorkspaceLeaf[];
+  file: (path: string) => MockTFile | null;
   readCount: (path: string) => number;
   setContent: (path: string, content: string) => void;
   setMtime: (path: string, mtime: number) => void;
@@ -43,6 +44,10 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
       record.reads += 1;
       return Promise.resolve(record.content);
     },
+    getAbstractFileByPath: (path: string) => {
+      const file = records.get(path)?.file;
+      return file?.path === path ? file : null;
+    },
   };
 
   const leaves: WorkspaceLeaf[] = [];
@@ -70,6 +75,7 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
     app: appValue as unknown as App,
     leaves,
     revealedLeaves,
+    file: (path) => records.get(path)?.file ?? null,
     readCount: (path) => records.get(path)?.reads ?? 0,
     setContent: (path, content) => {
       const record = records.get(path);
@@ -87,4 +93,11 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
 
 export function createFakeLeaf(app: App): RealWorkspaceLeaf {
   return new WorkspaceLeaf(app) as unknown as RealWorkspaceLeaf;
+}
+
+export function attachFileView(leaf: RealWorkspaceLeaf, file: MockTFile): void {
+  const mockLeaf = leaf as unknown as WorkspaceLeaf;
+  const view = new FileView(mockLeaf);
+  view.file = file;
+  mockLeaf.view = view;
 }
