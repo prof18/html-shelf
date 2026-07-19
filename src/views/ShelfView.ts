@@ -6,10 +6,14 @@ import {
   type WorkspaceLeaf,
 } from "obsidian";
 import type { ShelfEntry, ShelfSection, ShelfSettings } from "../core/model";
+import { filterSections } from "../core/search";
 import type { ShelfIndex } from "./ShelfIndex";
 import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./view-types";
 
 export class ShelfView extends ItemView {
+  private sections: ShelfSection[] = [];
+  private searchTimer: number | null = null;
+
   constructor(
     leaf: WorkspaceLeaf,
     private readonly index: ShelfIndex,
@@ -23,7 +27,7 @@ export class ShelfView extends ItemView {
     const shelf = this.contentEl.createDiv({ cls: "hs-shelf" });
     const toolbar = shelf.createDiv({ cls: "hs-toolbar" });
     toolbar.createEl("h1", { cls: "hs-title", text: "HTML shelf" });
-    toolbar.createEl("input", {
+    const search = toolbar.createEl("input", {
       cls: "hs-search",
       attr: {
         type: "search",
@@ -33,7 +37,25 @@ export class ShelfView extends ItemView {
     });
     const sectionsElement = shelf.createDiv({ cls: "hs-sections" });
     sectionsElement.createDiv({ cls: "hs-scanning", text: "Scanning vault…" });
-    this.renderSections(sectionsElement, await this.index.build());
+    this.sections = await this.index.build();
+    this.renderSections(sectionsElement, this.sections, false);
+    this.registerDomEvent(search, "input", () => {
+      if (this.searchTimer !== null) window.clearTimeout(this.searchTimer);
+      this.searchTimer = window.setTimeout(() => {
+        const scrollTop = sectionsElement.scrollTop;
+        const query = search.value;
+        this.renderSections(
+          sectionsElement,
+          filterSections(this.sections, query),
+          query.trim().length > 0,
+        );
+        sectionsElement.scrollTop = scrollTop;
+        this.searchTimer = null;
+      }, 100);
+    });
+    this.register(() => {
+      if (this.searchTimer !== null) window.clearTimeout(this.searchTimer);
+    });
   }
 
   getViewType(): string {
@@ -51,9 +73,17 @@ export class ShelfView extends ItemView {
   private renderSections(
     sectionsElement: HTMLElement,
     sections: ShelfSection[],
+    filtered: boolean,
   ): void {
     sectionsElement.empty();
     if (sections.length === 0) {
+      if (filtered) {
+        sectionsElement.createDiv({
+          cls: "hs-no-results",
+          text: "No pages match your filter.",
+        });
+        return;
+      }
       const empty = sectionsElement.createDiv({ cls: "hs-empty" });
       empty.createEl("p", { text: "No HTML files found in this vault." });
       if (this.getSettings().includeFolders.length > 0) {

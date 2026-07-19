@@ -95,7 +95,8 @@ button.hs-entry:focus-visible {
 }
 
 .hs-scanning,
-.hs-empty {
+.hs-empty,
+.hs-no-results {
   padding: 28px 18px;
   color: var(--text-muted);
 }

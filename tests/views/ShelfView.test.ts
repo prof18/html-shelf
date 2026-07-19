@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginManifest } from "obsidian";
 import HtmlShelfPlugin from "../../src/main";
 import { DEFAULT_SETTINGS } from "../../src/core/model";
@@ -43,6 +43,7 @@ describe("ShelfView metadata", () => {
 
 describe("ShelfView rendering", () => {
   beforeEach(() => noticeMessages.splice(0));
+  afterEach(() => vi.useRealTimers());
 
   it("renders grouped entries as semantic buttons and opens a file", async () => {
     const harness = createFakeApp([
@@ -133,6 +134,45 @@ describe("ShelfView rendering", () => {
     view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")?.click();
     await Promise.resolve();
     expect(noticeMessages).toEqual(["File no longer exists: page.html"]);
+  });
+
+  it("debounces search, preserves scroll, restores entries, and distinguishes no results", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "alpha.html", content: "<title>Alpha plan</title>" },
+      { path: "beta.html", content: "<title>Beta notes</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    const input = view.contentEl.querySelector<HTMLInputElement>(".hs-search")!;
+    const list = view.contentEl.querySelector<HTMLElement>(".hs-sections")!;
+    list.scrollTop = 64;
+
+    input.value = "alpha";
+    input.dispatchEvent(new Event("input"));
+    expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(1);
+    expect(view.contentEl.textContent).toContain("Alpha plan");
+    expect(list.scrollTop).toBe(64);
+
+    input.value = "missing";
+    input.dispatchEvent(new Event("input"));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(view.contentEl.querySelector(".hs-no-results")?.textContent).toBe(
+      "No pages match your filter.",
+    );
+    expect(view.contentEl.querySelector(".hs-empty")).toBeNull();
+
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(2);
   });
 });
 
