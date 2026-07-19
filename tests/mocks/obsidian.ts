@@ -3,6 +3,7 @@ export class TFile {
   extension = "";
   basename = "";
   name = "";
+  stat = { ctime: 0, mtime: 0, size: 0 };
 }
 
 export class TFolder {
@@ -10,8 +11,12 @@ export class TFolder {
   children: unknown[] = [];
 }
 
+export const noticeMessages: string[] = [];
+
 export class Notice {
-  constructor(public message: string) {}
+  constructor(public message: string) {
+    noticeMessages.push(message);
+  }
 }
 
 export const normalizePath = (path: string): string =>
