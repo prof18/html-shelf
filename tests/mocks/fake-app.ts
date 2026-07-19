@@ -1,5 +1,5 @@
-import type { App } from "obsidian";
-import { TFile as MockTFile } from "./obsidian";
+import type { App, WorkspaceLeaf as RealWorkspaceLeaf } from "obsidian";
+import { TFile as MockTFile, WorkspaceLeaf } from "./obsidian";
 
 export interface FakeFileInput {
   path: string;
@@ -9,6 +9,8 @@ export interface FakeFileInput {
 
 export interface FakeAppHarness {
   app: App;
+  leaves: WorkspaceLeaf[];
+  revealedLeaves: WorkspaceLeaf[];
   readCount: (path: string) => number;
   setContent: (path: string, content: string) => void;
   setMtime: (path: string, mtime: number) => void;
@@ -43,8 +45,31 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
     },
   };
 
+  const leaves: WorkspaceLeaf[] = [];
+  const revealedLeaves: WorkspaceLeaf[] = [];
+  const appValue: { vault: typeof vault; workspace: object } = {
+    vault,
+    workspace: {},
+  };
+  const workspace = {
+    getLeavesOfType: (type: string) =>
+      leaves.filter((leaf) => leaf.state.type === type),
+    getLeaf: () => {
+      const leaf = new WorkspaceLeaf(appValue);
+      leaves.push(leaf);
+      return leaf;
+    },
+    revealLeaf: (leaf: WorkspaceLeaf) => {
+      revealedLeaves.push(leaf);
+      return Promise.resolve();
+    },
+  };
+  appValue.workspace = workspace;
+
   return {
-    app: { vault } as unknown as App,
+    app: appValue as unknown as App,
+    leaves,
+    revealedLeaves,
     readCount: (path) => records.get(path)?.reads ?? 0,
     setContent: (path, content) => {
       const record = records.get(path);
@@ -58,4 +83,8 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
       record.file.stat.mtime = mtime;
     },
   };
+}
+
+export function createFakeLeaf(app: App): RealWorkspaceLeaf {
+  return new WorkspaceLeaf(app) as unknown as RealWorkspaceLeaf;
 }

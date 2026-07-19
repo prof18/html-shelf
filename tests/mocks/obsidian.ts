@@ -25,13 +25,20 @@ export const normalizePath = (path: string): string =>
     .replace(/\/+/g, "/")
     .replace(/^\/|\/$/g, "");
 
+const hasOff = (value: unknown): value is { off: () => void } =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof Reflect.get(value, "off") === "function";
+
 export class Component {
+  private readonly cleanup: (() => void)[] = [];
+
   register(callback: () => void): void {
-    void callback;
+    this.cleanup.push(callback);
   }
 
   registerEvent(event: unknown): void {
-    void event;
+    if (hasOff(event)) this.cleanup.push(() => event.off());
   }
 
   registerDomEvent(
@@ -43,16 +50,102 @@ export class Component {
   }
 
   load(): void {}
-  unload(): void {}
+  unload(): void {
+    for (const callback of this.cleanup.splice(0)) callback();
+  }
 }
 
-export class ItemView extends Component {}
+export class WorkspaceLeaf {
+  view: unknown = null;
+  state: { type: string; active?: boolean } = { type: "empty" };
+  openedFiles: TFile[] = [];
+
+  constructor(public app: unknown = {}) {}
+
+  setViewState(state: { type: string; active?: boolean }): Promise<void> {
+    this.state = state;
+    return Promise.resolve();
+  }
+
+  openFile(file: TFile): Promise<void> {
+    this.openedFiles.push(file);
+    return Promise.resolve();
+  }
+}
+
+export class ItemView extends Component {
+  app: unknown;
+  leaf: WorkspaceLeaf;
+  containerEl: HTMLElement;
+  contentEl: HTMLElement;
+
+  constructor(leaf: WorkspaceLeaf) {
+    super();
+    this.leaf = leaf;
+    this.app = leaf.app;
+    this.containerEl = document.createElement("div");
+    this.contentEl = document.createElement("div");
+    this.containerEl.append(this.contentEl);
+  }
+
+  onOpen(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  onClose(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 export class FileView extends ItemView {
   file: TFile | null = null;
 }
 
-export class Plugin extends Component {}
+export const registeredViews: {
+  type: string;
+  creator: (leaf: WorkspaceLeaf) => unknown;
+}[] = [];
+export const ribbonItems: {
+  icon: string;
+  title: string;
+  callback: () => unknown;
+}[] = [];
+export const registeredCommands: {
+  id: string;
+  name: string;
+  callback: () => unknown;
+}[] = [];
+
+export class Plugin extends Component {
+  constructor(
+    public app: unknown,
+    public manifest: unknown,
+  ) {
+    super();
+  }
+
+  registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
+    registeredViews.push({ type, creator });
+  }
+
+  addRibbonIcon(
+    icon: string,
+    title: string,
+    callback: () => unknown,
+  ): HTMLElement {
+    ribbonItems.push({ icon, title, callback });
+    return document.createElement("div");
+  }
+
+  addCommand(command: {
+    id: string;
+    name: string;
+    callback: () => unknown;
+  }): typeof command {
+    registeredCommands.push(command);
+    return command;
+  }
+}
 
 export class PluginSettingTab {}
 
