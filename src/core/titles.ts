@@ -13,6 +13,15 @@ const humanize = (basename: string): string => {
 const capTitle = (title: string): string =>
   title.length > 120 ? `${title.slice(0, 119)}…` : title;
 
+export function extractTitleTag(htmlPrefix: string): string | null {
+  if (!htmlPrefix.toLowerCase().includes("</title>")) return null;
+  const document = new DOMParser().parseFromString(htmlPrefix, "text/html");
+  const title = normalizeText(
+    document.querySelector("title")?.textContent ?? null,
+  );
+  return title ? capTitle(title) : null;
+}
+
 export function deriveTitle(html: string, fallbackBasename: string): string {
   const document = new DOMParser().parseFromString(html, "text/html");
   const title = normalizeText(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveTitle } from "../../src/core/titles";
+import { deriveTitle, extractTitleTag } from "../../src/core/titles";
 
 describe("deriveTitle", () => {
   it("prefers the first title and normalizes its text", () => {
@@ -41,5 +41,29 @@ describe("deriveTitle", () => {
 
   it("returns a stable fallback for an empty basename", () => {
     expect(deriveTitle("", "")).toBe("Untitled");
+  });
+});
+
+describe("extractTitleTag", () => {
+  it("extracts and normalizes a complete title from a prefix", () => {
+    expect(extractTitleTag("<title> Alpha &amp;  beta </title><p>rest")).toBe(
+      "Alpha & beta",
+    );
+  });
+
+  it("returns null without a complete closing title tag", () => {
+    const page = `<title>${"x".repeat(9_000)}</title>`;
+    expect(extractTitleTag(page.slice(0, 8_192))).toBeNull();
+  });
+
+  it("returns null when a complete prefix has no usable title", () => {
+    expect(extractTitleTag("<title> </title><h1>Heading</h1>")).toBeNull();
+    expect(extractTitleTag("<h1>Heading</h1>")).toBeNull();
+  });
+
+  it("applies the display-title length cap", () => {
+    expect(extractTitleTag(`<title>${"x".repeat(140)}</title>`)).toBe(
+      `${"x".repeat(119)}…`,
+    );
   });
 });
