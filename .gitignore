@@ -1,0 +1,9 @@
+node_modules/
+main.js
+coverage/
+*.map
+.DS_Store
+plan/
+dev-vault/.obsidian/plugins/html-shelf/
+dev-vault/.obsidian/workspace.json
+dev-vault/.obsidian/workspace-mobile.json
