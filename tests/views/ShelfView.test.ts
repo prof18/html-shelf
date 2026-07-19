@@ -174,6 +174,76 @@ describe("ShelfView rendering", () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(2);
   });
+
+  it("refreshes for HTML changes, ignores markdown modifies, and preserves query and scroll", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "alpha.html", content: "<title>Alpha</title>" },
+      { path: "note.md", content: "Markdown" },
+    ]);
+    class CountingIndex extends ShelfIndex {
+      builds = 0;
+
+      override async build() {
+        this.builds += 1;
+        return super.build();
+      }
+    }
+    const index = new CountingIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    expect(index.builds).toBe(1);
+
+    harness.modifyFile("note.md", "Changed markdown");
+    await vi.advanceTimersByTimeAsync(300);
+    expect(index.builds).toBe(1);
+
+    harness.createFile({ path: "beta.html", content: "<title>Beta</title>" });
+    await vi.advanceTimersByTimeAsync(249);
+    expect(index.builds).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(index.builds).toBe(2);
+    expect(view.contentEl.textContent).toContain("Beta");
+
+    const input = view.contentEl.querySelector<HTMLInputElement>(".hs-search")!;
+    const list = view.contentEl.querySelector<HTMLElement>(".hs-sections")!;
+    input.value = "beta";
+    input.dispatchEvent(new Event("input"));
+    await vi.advanceTimersByTimeAsync(100);
+    list.scrollTop = 72;
+    harness.renameFile("alpha.html", "renamed.html");
+    await vi.advanceTimersByTimeAsync(250);
+    expect(input.value).toBe("beta");
+    expect(list.scrollTop).toBe(72);
+    expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(1);
+    expect(view.contentEl.textContent).toContain("beta.html");
+    expect(view.contentEl.textContent).not.toContain("renamed.html");
+  });
+
+  it("removes deleted HTML rows and notices html-to-text renames", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "alpha.html", content: "<title>Alpha</title>" },
+      { path: "beta.html", content: "<title>Beta</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    harness.deleteFile("beta.html");
+    await vi.advanceTimersByTimeAsync(250);
+    expect(view.contentEl.textContent).not.toContain("beta.html");
+    harness.renameFile("alpha.html", "alpha.txt");
+    await vi.advanceTimersByTimeAsync(250);
+    expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(0);
+  });
 });
 
 describe("plugin shelf registration", () => {

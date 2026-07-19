@@ -6,6 +6,7 @@ import {
   type WorkspaceLeaf,
 } from "obsidian";
 import type { ShelfEntry, ShelfSection, ShelfSettings } from "../core/model";
+import { isHtmlPath } from "../core/scan";
 import { filterSections } from "../core/search";
 import type { ShelfIndex } from "./ShelfIndex";
 import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./view-types";
@@ -13,6 +14,9 @@ import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./view-types";
 export class ShelfView extends ItemView {
   private sections: ShelfSection[] = [];
   private searchTimer: number | null = null;
+  private refreshTimer: number | null = null;
+  private searchElement: HTMLInputElement | null = null;
+  private sectionsElement: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -36,6 +40,8 @@ export class ShelfView extends ItemView {
       },
     });
     const sectionsElement = shelf.createDiv({ cls: "hs-sections" });
+    this.searchElement = search;
+    this.sectionsElement = sectionsElement;
     sectionsElement.createDiv({ cls: "hs-scanning", text: "Scanning vault…" });
     this.sections = await this.index.build();
     this.renderSections(sectionsElement, this.sections, false);
@@ -55,7 +61,9 @@ export class ShelfView extends ItemView {
     });
     this.register(() => {
       if (this.searchTimer !== null) window.clearTimeout(this.searchTimer);
+      if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
     });
+    this.registerVaultEvents();
   }
 
   getViewType(): string {
@@ -134,5 +142,65 @@ export class ShelfView extends ItemView {
     } else {
       new Notice(`File no longer exists: ${entry.path}`);
     }
+  }
+
+  private registerVaultEvents(): void {
+    this.registerEvent(
+      this.app.vault.on("create", (file) => {
+        if (this.isRelevantPath(file.path)) this.scheduleRefresh();
+      }),
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (this.isRelevantPath(file.path)) {
+          this.index.invalidate(file.path);
+          this.scheduleRefresh();
+        }
+      }),
+    );
+    this.registerEvent(
+      this.app.vault.on("modify", (file) => {
+        if (this.isRelevantPath(file.path)) {
+          this.index.invalidate(file.path);
+          this.scheduleRefresh();
+        }
+      }),
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (this.isRelevantPath(file.path) || this.isRelevantPath(oldPath)) {
+          this.index.invalidate(oldPath);
+          this.scheduleRefresh();
+        }
+      }),
+    );
+  }
+
+  private isRelevantPath(path: string): boolean {
+    return (
+      isHtmlPath(path, this.getSettings().includeHtm) ||
+      path.slice(path.lastIndexOf("/") + 1) === "html-shelf.json"
+    );
+  }
+
+  private scheduleRefresh(): void {
+    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
+    this.refreshTimer = window.setTimeout(() => {
+      this.refreshTimer = null;
+      void this.rebuild();
+    }, 250);
+  }
+
+  private async rebuild(): Promise<void> {
+    if (!this.searchElement || !this.sectionsElement) return;
+    const query = this.searchElement.value;
+    const scrollTop = this.sectionsElement.scrollTop;
+    this.sections = await this.index.build();
+    this.renderSections(
+      this.sectionsElement,
+      filterSections(this.sections, query),
+      query.trim().length > 0,
+    );
+    this.sectionsElement.scrollTop = scrollTop;
   }
 }
