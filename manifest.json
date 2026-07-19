@@ -1,0 +1,10 @@
+{
+  "id": "html-shelf",
+  "name": "HTML Shelf",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Browse and read the HTML files in your vault on mobile and desktop, without the file explorer.",
+  "author": "Marco Gomiero",
+  "authorUrl": "https://www.marcogomiero.com",
+  "isDesktopOnly": false
+}
