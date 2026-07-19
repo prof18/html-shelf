@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-hs-theme="forged">
+  <head>
+    <meta charset="utf-8" />
+    <title>Synthetic realistic plan</title>
+    <link rel="stylesheet" href="https://example.com/remote.css" />
+    <link rel="preload" href="preload.css" />
+    <style>
+      @import url("https://example.com/import.css");
+      :root {
+        --paper: #fbf7ef;
+        --ink: #25231f;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+      }
+      .card {
+        border: 1px solid currentColor;
+        padding: 1rem;
+      }
+    </style>
+    <script>
+      globalThis.compromised = true;
+    </script>
+  </head>
+  <body>
+    <main>
+      <h1>Synthetic realistic plan</h1>
+      <article class="card">
+        <a href="next.html">Next page</a>
+        <a href="#details">Details</a>
+        <img src="diagram.png" srcset="diagram@2x.png 2x" alt="Diagram" />
+      </article>
+      <section id="details">
+        <h2>Details</h2>
+        <p>Public placeholder prose.</p>
+      </section>
+    </main>
+  </body>
+</html>
