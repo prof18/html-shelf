@@ -6,6 +6,7 @@ const context = (
   overrides: Partial<SanitizeContext> = {},
 ): SanitizeContext => ({
   filePath: "plans/feedflow/alpha.html",
+  mobile: false,
   resourceUrl: (path) => `vault://${path}`,
   theme: "dark",
   ...overrides,
@@ -220,6 +221,18 @@ describe("prepareHtml link tagging and theme", () => {
       );
     },
   );
+
+  it("adds scrollable bottom clearance inside mobile pages", () => {
+    const document = parse(
+      prepareHtml("<main>Page</main>", context({ mobile: true })),
+    );
+
+    expect(document.documentElement.dataset.hsMobile).toBe("true");
+    expect(document.head.lastElementChild?.textContent).toContain(
+      "body::after",
+    );
+    expect(document.head.lastElementChild?.textContent).toContain("176px");
+  });
 });
 
 describe("prepareHtml realistic fixture", () => {

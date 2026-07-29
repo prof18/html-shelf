@@ -114,6 +114,7 @@ export class HtmlView extends FileView {
 
     const prepared = prepareHtml(raw, {
       filePath: file.path,
+      mobile: document.body.classList.contains("is-mobile"),
       resourceUrl: (path) => this.app.vault.adapter.getResourcePath(path),
       theme: isDarkTheme() ? "dark" : "light",
     });

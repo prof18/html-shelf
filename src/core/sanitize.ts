@@ -2,6 +2,7 @@ import { classifyHref, normalizeHrefForScheme, resolveRelative } from "./links";
 
 export interface SanitizeContext {
   filePath: string;
+  mobile: boolean;
   resourceUrl: (vaultPath: string) => string;
   theme: "light" | "dark";
 }
@@ -137,9 +138,12 @@ export function prepareHtml(raw: string, context: SanitizeContext): string {
   }
 
   document.documentElement.setAttribute("data-hs-theme", context.theme);
+  if (context.mobile) {
+    document.documentElement.setAttribute("data-hs-mobile", "true");
+  }
   const themeStyle = document.createElement("style");
   themeStyle.textContent =
-    ':root[data-hs-theme="dark"]{color-scheme:dark}:root[data-hs-theme="light"]{color-scheme:light}';
+    ':root[data-hs-theme="dark"]{color-scheme:dark}:root[data-hs-theme="light"]{color-scheme:light}:root[data-hs-mobile="true"] body::after{content:"";display:block!important;width:100%!important;height:176px!important;min-height:176px!important;flex:0 0 176px!important;pointer-events:none!important}';
   document.head.append(themeStyle);
 
   return `<!DOCTYPE html>${document.documentElement.outerHTML}`;

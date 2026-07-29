@@ -62,7 +62,7 @@ describe("shelf styles", () => {
     expect(frameStyles.borderTopWidth).toBe("0px");
   });
 
-  it("keeps rendered-page scrolling above mobile floating navigation", () => {
+  it("keeps the mobile HTML iframe full-height", () => {
     document.head.innerHTML = `<style>${pluginStyles}</style>`;
     document.body.className = "is-mobile";
     document.body.innerHTML = `
@@ -75,7 +75,7 @@ describe("shelf styles", () => {
       document.querySelector<HTMLIFrameElement>(".hs-frame")!,
     );
 
-    expect(frame.height).toBe("calc(100% - 176px)");
+    expect(frame.height).toBe("100%");
   });
 
   it("positions the page controls as compact floating chrome", () => {
