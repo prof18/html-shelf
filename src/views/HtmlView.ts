@@ -21,6 +21,9 @@ import {
 const isDarkTheme = (): boolean =>
   document.body.classList.contains("theme-dark");
 
+const FRAME_READY_POLL_INTERVAL_MS = 25;
+const FRAME_READY_POLL_ATTEMPTS = 200;
+
 const isPageHistoryEntry = (entry: unknown): entry is PageHistoryEntry => {
   if (typeof entry !== "object" || entry === null) return false;
   const record = entry as Record<string, unknown>;
@@ -42,6 +45,7 @@ export class HtmlView extends FileView {
   private pendingScrollY: number | null = null;
   private title: string | null = null;
   private frame: HTMLIFrameElement | null = null;
+  private frameReadyTimer: number | null = null;
   private backButton: HTMLButtonElement | null = null;
   private documentListener: {
     doc: Document;
@@ -136,26 +140,12 @@ export class HtmlView extends FileView {
     this.frame = frame;
     frame.setAttribute("sandbox", "allow-same-origin");
     frame.addEventListener("load", () => {
-      const loadedDocument = frame.contentDocument;
-      if (
-        !loadedDocument?.documentElement.hasAttribute("data-hs-theme") ||
-        this.documentListener?.doc === loadedDocument
-      ) {
-        return;
-      }
-      this.wireLinks(frame);
-      if (this.pendingAnchor) {
-        this.scrollToAnchor(this.pendingAnchor);
-        this.pendingAnchor = null;
-      }
-      if (this.pendingScrollY !== null) {
-        frame.contentWindow?.scrollTo(0, this.pendingScrollY);
-        this.pendingScrollY = null;
-      }
+      if (this.finishPreparedFrame(frame)) this.stopFrameReadyPolling();
     });
     frame.srcdoc = prepared;
     this.contentEl.appendChild(frame);
     this.renderPagebar();
+    this.startFrameReadyPolling(frame);
   }
 
   protected wireLinks(frame: HTMLIFrameElement): void {
@@ -187,6 +177,7 @@ export class HtmlView extends FileView {
   }
 
   async onUnloadFile(file: TFile): Promise<void> {
+    this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
     this.backButton = null;
@@ -194,6 +185,7 @@ export class HtmlView extends FileView {
   }
 
   onClose(): Promise<void> {
+    this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
     this.backButton = null;
@@ -243,6 +235,47 @@ export class HtmlView extends FileView {
     this.documentListener = null;
   }
 
+  private finishPreparedFrame(frame: HTMLIFrameElement): boolean {
+    if (frame !== this.frame) return true;
+    const loadedDocument = frame.contentDocument;
+    if (!loadedDocument?.documentElement.hasAttribute("data-hs-theme")) {
+      return false;
+    }
+    if (this.documentListener?.doc === loadedDocument) return true;
+
+    this.wireLinks(frame);
+    if (this.pendingAnchor) {
+      this.scrollToAnchor(this.pendingAnchor);
+      this.pendingAnchor = null;
+    }
+    if (this.pendingScrollY !== null) {
+      frame.contentWindow?.scrollTo(0, this.pendingScrollY);
+      this.pendingScrollY = null;
+    }
+    return true;
+  }
+
+  private startFrameReadyPolling(frame: HTMLIFrameElement): void {
+    this.stopFrameReadyPolling();
+    let attemptsRemaining = FRAME_READY_POLL_ATTEMPTS;
+    const check = () => {
+      this.frameReadyTimer = null;
+      if (this.finishPreparedFrame(frame) || attemptsRemaining === 0) return;
+      attemptsRemaining -= 1;
+      this.frameReadyTimer = window.setTimeout(
+        check,
+        FRAME_READY_POLL_INTERVAL_MS,
+      );
+    };
+    check();
+  }
+
+  private stopFrameReadyPolling(): void {
+    if (this.frameReadyTimer === null) return;
+    window.clearTimeout(this.frameReadyTimer);
+    this.frameReadyTimer = null;
+  }
+
   private renderPagebar(): void {
     const bar = this.contentEl.createDiv({ cls: "hs-pagebar" });
     const back = bar.createEl("button", {
@@ -275,6 +308,7 @@ export class HtmlView extends FileView {
   }
 
   private renderMessage(message: string): void {
+    this.stopFrameReadyPolling();
     this.contentEl.empty();
     this.frame = null;
     this.backButton = null;

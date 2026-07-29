@@ -30,6 +30,7 @@ describe("HtmlView", () => {
     document.body.replaceChildren();
     noticeMessages.splice(0);
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it("uses file-view metadata and derives its tab title", async () => {
@@ -188,6 +189,47 @@ describe("HtmlView", () => {
     expect(wiredFrames).toEqual([frame]);
     expect(scrollIntoView).toHaveBeenCalledOnce();
     expect(view.pendingAnchor).toBeNull();
+  });
+
+  it("polls for the prepared iframe document when iOS omits its load event", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: '<h2 id="target">Target</h2>' },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const wiredFrames: HTMLIFrameElement[] = [];
+    class TestHtmlView extends HtmlView {
+      protected override wireLinks(frame: HTMLIFrameElement): void {
+        wiredFrames.push(frame);
+      }
+    }
+    const view = new TestHtmlView(createFakeLeaf(harness.app), plugin);
+    document.body.append(view.containerEl);
+    const file = harness.file("page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+
+    expect(wiredFrames).toEqual([]);
+    await vi.waitFor(() => expect(frame.contentDocument).not.toBeNull());
+    markFramePrepared(frame);
+    await vi.waitFor(() => expect(wiredFrames).toEqual([frame]));
+
+    await view.onUnloadFile(file);
+  });
+
+  it("cancels iframe readiness polling when the file unloads", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const file = harness.file("page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    await view.onUnloadFile(file);
+
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("renders a read error instead of a blank iframe", async () => {
