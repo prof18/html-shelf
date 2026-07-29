@@ -94,6 +94,18 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
       revealedLeaves.push(leaf);
       return Promise.resolve();
     },
+    getActiveViewOfType: <T>(type: { prototype: T }): T | null => {
+      const leaf = [...leaves].reverse().find(({ view }) => {
+        if (
+          view === null ||
+          (typeof view !== "object" && typeof view !== "function")
+        ) {
+          return false;
+        }
+        return Object.prototype.isPrototypeOf.call(type.prototype, view);
+      });
+      return (leaf?.view as T | undefined) ?? null;
+    },
   };
   appValue.workspace = workspace;
 

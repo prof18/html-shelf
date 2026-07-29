@@ -180,7 +180,8 @@ export const ribbonItems: {
 export const registeredCommands: {
   id: string;
   name: string;
-  callback: () => unknown;
+  callback?: () => unknown;
+  checkCallback?: (checking: boolean) => boolean | void;
 }[] = [];
 export const registeredExtensions: {
   extensions: string[];
@@ -221,7 +222,8 @@ export class Plugin extends Component {
   addCommand(command: {
     id: string;
     name: string;
-    callback: () => unknown;
+    callback?: () => unknown;
+    checkCallback?: (checking: boolean) => boolean | void;
   }): typeof command {
     registeredCommands.push(command);
     return command;

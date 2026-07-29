@@ -45,4 +45,25 @@ describe("shelf styles", () => {
     expect(frameStyles.height).toBe("100%");
     expect(frameStyles.borderTopWidth).toBe("0px");
   });
+
+  it("positions the page controls as compact floating chrome", () => {
+    document.head.innerHTML = `<style>${pluginStyles}</style>`;
+    document.body.innerHTML = `
+      <div class="workspace-leaf-content" data-type="html-shelf-page">
+        <div class="view-content"><div class="hs-pagebar"></div></div>
+      </div>
+    `;
+
+    const content = getComputedStyle(
+      document.querySelector<HTMLElement>(".view-content")!,
+    );
+    const pagebar = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-pagebar")!,
+    );
+
+    expect(content.position).toBe("relative");
+    expect(pagebar.position).toBe("absolute");
+    expect(pagebar.zIndex).not.toBe("auto");
+    expect(Number(pagebar.opacity)).toBeLessThanOrEqual(0.85);
+  });
 });

@@ -4,6 +4,10 @@ import HtmlShelfPlugin from "../../src/main";
 import { HtmlView } from "../../src/views/HtmlView";
 import { VIEW_TYPE_HTML } from "../../src/views/view-types";
 import { createFakeApp, createFakeLeaf } from "../mocks/fake-app";
+import {
+  noticeMessages,
+  WorkspaceLeaf as MockWorkspaceLeaf,
+} from "../mocks/obsidian";
 
 const manifest: PluginManifest = {
   id: "html-shelf",
@@ -18,6 +22,8 @@ describe("HtmlView", () => {
   afterEach(() => {
     document.body.classList.remove("theme-dark");
     document.body.replaceChildren();
+    noticeMessages.splice(0);
+    vi.restoreAllMocks();
   });
 
   it("uses file-view metadata and derives its tab title", async () => {
@@ -149,5 +155,207 @@ describe("HtmlView", () => {
     expect(view.contentEl.textContent).toBe("This file is empty.");
     expect(view.contentEl.querySelector("iframe")).toBeNull();
     expect(harness.readCount("empty.html")).toBe(1);
+  });
+
+  it("routes a delegated page click in the same view and records history", async () => {
+    const harness = createFakeApp([
+      { path: "plans/current.html", content: "<title>Current</title>" },
+      { path: "plans/next.html", content: "<title>Next</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const leaf = new MockWorkspaceLeaf(harness.app);
+    const view = new HtmlView(leaf as never, plugin);
+    document.body.append(view.containerEl);
+    await view.onLoadFile(
+      harness.file("plans/current.html")! as unknown as TFile,
+    );
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    Object.defineProperty(frame.contentWindow, "scrollY", {
+      value: 84,
+      configurable: true,
+    });
+    const anchor = frame.contentDocument!.createElement("a");
+    anchor.setAttribute(
+      "data-hs-link",
+      JSON.stringify({
+        kind: "page",
+        path: "plans/next.html",
+        anchor: "detail",
+      }),
+    );
+    frame.contentDocument!.body.append(anchor);
+    frame.dispatchEvent(new Event("load"));
+
+    anchor.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(view.history).toEqual([{ path: "plans/current.html", scrollY: 84 }]);
+    expect(view.pendingAnchor).toBe("detail");
+    expect(leaf.openedFiles.map(({ path }) => path)).toEqual([
+      "plans/next.html",
+    ]);
+    await vi.waitFor(() =>
+      expect(
+        view.contentEl.querySelector<HTMLButtonElement>(
+          '[aria-label="Go back in page history"]',
+        )?.disabled,
+      ).toBe(false),
+    );
+  });
+
+  it("removes stale document listeners when rewired and unloaded", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    class TestHtmlView extends HtmlView {
+      wire(frame: HTMLIFrameElement): void {
+        this.wireLinks(frame);
+      }
+    }
+    const view = new TestHtmlView(createFakeLeaf(harness.app), plugin);
+    const first = document.createElement("iframe");
+    const second = document.createElement("iframe");
+    document.body.append(first, second);
+    const appendUnsupportedLink = (frame: HTMLIFrameElement) => {
+      const anchor = frame.contentDocument!.createElement("a");
+      anchor.setAttribute(
+        "data-hs-link",
+        JSON.stringify({ kind: "unsupported", href: "page.pdf" }),
+      );
+      frame.contentDocument!.body.append(anchor);
+      return anchor;
+    };
+    const firstLink = appendUnsupportedLink(first);
+    const secondLink = appendUnsupportedLink(second);
+
+    view.wire(first);
+    view.wire(second);
+    firstLink.click();
+    secondLink.click();
+    expect(noticeMessages).toEqual(["This link type can't be opened here."]);
+
+    await view.onUnloadFile(harness.file("page.html")! as unknown as TFile);
+    secondLink.click();
+    expect(noticeMessages).toHaveLength(1);
+
+    view.wire(second);
+    await view.onClose();
+    secondLink.click();
+    expect(noticeMessages).toHaveLength(1);
+  });
+
+  it("routes iframe anchor, index, external, unsupported, and plain clicks", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const activateShelf = vi
+      .spyOn(plugin, "activateShelf")
+      .mockResolvedValue(undefined);
+    const openExternal = vi.spyOn(window, "open").mockReturnValue(null);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    document.body.append(view.containerEl);
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    const doc = frame.contentDocument!;
+    const target = doc.createElement("a");
+    target.name = "detail";
+    const scrollIntoView = vi.fn();
+    target.scrollIntoView = scrollIntoView;
+    doc.body.append(target);
+    const clickTarget = (linkTarget: object) => {
+      const anchor = doc.createElement("a");
+      anchor.setAttribute("data-hs-link", JSON.stringify(linkTarget));
+      doc.body.append(anchor);
+      anchor.click();
+    };
+    frame.dispatchEvent(new Event("load"));
+
+    clickTarget({ kind: "anchor", anchor: "detail" });
+    clickTarget({ kind: "index", path: "index.html" });
+    clickTarget({ kind: "external", href: "https://example.com" });
+    clickTarget({ kind: "unsupported", href: "page.pdf" });
+    const plain = doc.createElement("span");
+    doc.body.append(plain);
+    plain.click();
+    await Promise.resolve();
+
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(activateShelf).toHaveBeenCalledOnce();
+    expect(openExternal).toHaveBeenCalledWith("https://example.com");
+    expect(noticeMessages).toEqual(["This link type can't be opened here."]);
+  });
+
+  it("goes back without repushing history and restores scroll after load", async () => {
+    const harness = createFakeApp([
+      { path: "previous.html", content: "<title>Previous</title>" },
+      { path: "current.html", content: "<title>Current</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const leaf = new MockWorkspaceLeaf(harness.app);
+    const view = new HtmlView(leaf as never, plugin);
+    document.body.append(view.containerEl);
+    await view.onLoadFile(harness.file("current.html")! as unknown as TFile);
+    view.history.push({ path: "previous.html", scrollY: 146 });
+
+    expect(view.canGoBack()).toBe(true);
+    await view.goBack();
+
+    expect(view.history).toEqual([]);
+    expect(leaf.openedFiles.map(({ path }) => path)).toEqual(["previous.html"]);
+    await view.onLoadFile(harness.file("previous.html")! as unknown as TFile);
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    const scrollTo = vi.fn();
+    Object.defineProperty(frame.contentWindow, "scrollTo", {
+      value: scrollTo,
+      configurable: true,
+    });
+    frame.dispatchEvent(new Event("load"));
+    expect(scrollTo).toHaveBeenCalledWith(0, 146);
+  });
+
+  it("keeps a missing back target in history and shows a notice", async () => {
+    const harness = createFakeApp([
+      { path: "current.html", content: "<title>Current</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const leaf = new MockWorkspaceLeaf(harness.app);
+    const view = new HtmlView(leaf as never, plugin);
+    view.history.push({ path: "gone.html", scrollY: 20 });
+
+    await view.goBack();
+
+    expect(view.history).toEqual([{ path: "gone.html", scrollY: 20 }]);
+    expect(leaf.openedFiles).toEqual([]);
+    expect(noticeMessages).toEqual(["Linked page not found: gone.html"]);
+  });
+
+  it("renders compact back and shelf controls", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const activateShelf = vi
+      .spyOn(plugin, "activateShelf")
+      .mockResolvedValue(undefined);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+
+    const bar = view.contentEl.querySelector(".hs-pagebar");
+    const back = bar?.querySelector<HTMLButtonElement>(
+      '[aria-label="Go back in page history"]',
+    );
+    const shelf = bar?.querySelector<HTMLButtonElement>(
+      '[aria-label="Open HTML shelf"]',
+    );
+    expect(bar).not.toBeNull();
+    expect(back?.disabled).toBe(true);
+    shelf?.click();
+    expect(activateShelf).toHaveBeenCalledOnce();
   });
 });

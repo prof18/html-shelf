@@ -42,6 +42,16 @@ export default class HtmlShelfPlugin extends Plugin {
       name: "Open shelf",
       callback: () => this.activateShelf(),
     });
+    this.addCommand({
+      id: "open-page-back",
+      name: "Go back in page history",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(HtmlView);
+        if (!view) return false;
+        if (!checking) void view.goBack();
+        return true;
+      },
+    });
   }
 
   async activateShelf(): Promise<void> {

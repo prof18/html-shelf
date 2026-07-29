@@ -307,6 +307,7 @@ describe("plugin shelf registration", () => {
     ]);
     expect(registeredCommands.map(({ id, name }) => ({ id, name }))).toEqual([
       { id: "open-shelf", name: "Open shelf" },
+      { id: "open-page-back", name: "Go back in page history" },
     ]);
   });
 
@@ -331,7 +332,7 @@ describe("plugin shelf registration", () => {
     plugin.onload();
     await plugin.activateShelf();
     await ribbonItems[0]?.callback();
-    await registeredCommands[0]?.callback();
+    await registeredCommands[0]?.callback?.();
     expect(harness.leaves).toHaveLength(1);
     expect(harness.leaves[0]?.state).toEqual({
       type: VIEW_TYPE_SHELF,
@@ -342,5 +343,27 @@ describe("plugin shelf registration", () => {
       harness.leaves[0],
       harness.leaves[0],
     ]);
+  });
+
+  it("guards the page-back command by the active HTML view", () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    plugin.onload();
+    const command = registeredCommands.find(
+      ({ id }) => id === "open-page-back",
+    )!;
+    expect(command.checkCallback?.(true)).toBe(false);
+
+    const leaf = harness.app.workspace.getLeaf(true);
+    const view = new HtmlView(leaf, plugin);
+    (leaf as unknown as MockWorkspaceLeaf).view = view;
+    const goBack = vi.spyOn(view, "goBack").mockResolvedValue(undefined);
+
+    expect(command.checkCallback?.(true)).toBe(true);
+    expect(goBack).not.toHaveBeenCalled();
+    expect(command.checkCallback?.(false)).toBe(true);
+    expect(goBack).toHaveBeenCalledOnce();
   });
 });
