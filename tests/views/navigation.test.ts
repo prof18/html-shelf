@@ -57,6 +57,20 @@ describe("findLinkTarget", () => {
 
   it("returns null for an untagged click", () => {
     expect(findLinkTarget(document.createElement("span"))).toBeNull();
+    expect(findLinkTarget(document.createTextNode("orphan"))).toBeNull();
+  });
+
+  it("finds a tagged anchor from a text-node click target", () => {
+    const anchor = document.createElement("a");
+    anchor.setAttribute(
+      "data-hs-link",
+      JSON.stringify({ kind: "anchor", anchor: "detail" }),
+    );
+    const text = document.createTextNode("Jump");
+    anchor.append(text);
+    document.body.append(anchor);
+
+    expect(findLinkTarget(text)).toEqual({ kind: "anchor", anchor: "detail" });
   });
 
   it.each([
@@ -181,6 +195,32 @@ describe("routeLink", () => {
     ).rejects.toThrow("open failed");
 
     expect(history).toEqual([]);
+  });
+
+  it("opens without history when there is no current page", async () => {
+    const { deps, history, openFile } = createRouteHarness({
+      currentPath: null,
+    });
+
+    await routeLink({ kind: "page", path: "plans/next.html" }, deps);
+
+    expect(history).toEqual([]);
+    expect(openFile).toHaveBeenCalledWith("plans/next.html", undefined);
+  });
+
+  it("does not pop history for a failed first-page open", async () => {
+    const history: PageHistoryEntry[] = [];
+    const pop = vi.spyOn(history, "pop");
+    const { deps } = createRouteHarness({
+      currentPath: null,
+      history,
+      openFile: () => Promise.reject(new Error("open failed")),
+    });
+
+    await expect(
+      routeLink({ kind: "page", path: "plans/next.html" }, deps),
+    ).rejects.toThrow("open failed");
+    expect(pop).not.toHaveBeenCalled();
   });
 
   it("handles self links without reopening or pushing history", async () => {

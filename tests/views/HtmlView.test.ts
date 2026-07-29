@@ -161,6 +161,24 @@ describe("HtmlView", () => {
     expect(host?.shadowRoot?.querySelector("script")).toBeNull();
   });
 
+  it("keeps a missing local image on its resource URL in the iOS renderer", async () => {
+    Platform.isIosApp = true;
+    const harness = createFakeApp([
+      { path: "plans/page.html", content: '<img src="missing.png">' },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.onLoadFile(harness.file("plans/page.html")! as unknown as TFile);
+
+    expect(
+      view.contentEl
+        .querySelector<HTMLElement>(".hs-shadow-frame")
+        ?.shadowRoot?.querySelector("img")
+        ?.getAttribute("src"),
+    ).toBe("app://vault/plans/missing.png");
+  });
+
   it("routes links inside the iOS shadow renderer", async () => {
     Platform.isMobile = true;
     Platform.isIosApp = true;
@@ -476,6 +494,40 @@ describe("HtmlView", () => {
     expect(noticeMessages).toEqual(["Linked page not found: gone.html"]);
   });
 
+  it("does nothing when page history is empty", async () => {
+    const harness = createFakeApp([]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const leaf = new MockWorkspaceLeaf(harness.app);
+    const view = new HtmlView(leaf as never, plugin);
+
+    await view.goBack();
+
+    expect(leaf.openedFiles).toEqual([]);
+    expect(noticeMessages).toEqual([]);
+  });
+
+  it("keeps history when opening the previous page fails", async () => {
+    const harness = createFakeApp([
+      { path: "previous.html", content: "<title>Previous</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const leaf = new MockWorkspaceLeaf(harness.app);
+    leaf.openFile = vi.fn(() => Promise.reject(new Error("open failed")));
+    const view = new HtmlView(leaf as never, plugin);
+    view.history.push({ path: "previous.html", scrollY: 15 });
+
+    await expect(view.goBack()).rejects.toThrow("open failed");
+
+    expect(view.history).toEqual([{ path: "previous.html", scrollY: 15 }]);
+  });
+
+  it("ignores theme updates before a page is mounted", () => {
+    const harness = createFakeApp([]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    expect(() => view.updateTheme("dark")).not.toThrow();
+  });
+
   it("renders compact back and shelf controls", async () => {
     const harness = createFakeApp([
       { path: "page.html", content: "<title>Page</title>" },
@@ -591,5 +643,11 @@ describe("HtmlView", () => {
       htmlShelfHistory: [],
       htmlShelfScrollY: 0,
     });
+
+    await view.setState(
+      { htmlShelfHistory: "not-an-array" },
+      { history: false },
+    );
+    expect(view.history).toEqual([]);
   });
 });

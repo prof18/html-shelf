@@ -327,6 +327,47 @@ describe("ShelfView rendering", () => {
     await vi.advanceTimersByTimeAsync(250);
     expect(view.contentEl.querySelectorAll(".hs-entry")).toHaveLength(0);
   });
+
+  it("notices when a listed file disappears before its row is clicked", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "gone.html", content: "<title>Gone</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    harness.deleteFile("gone.html");
+
+    view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")?.click();
+    await Promise.resolve();
+
+    expect(noticeMessages).toContain("File no longer exists: gone.html");
+  });
+
+  it("debounces repeated relevant vault changes", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const build = vi.spyOn(index, "build");
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+
+    harness.modifyFile("page.html", "<title>Changed</title>");
+    harness.createFile({ path: "new.html", content: "<title>New</title>" });
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(build).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("plugin shelf registration", () => {

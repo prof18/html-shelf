@@ -40,6 +40,11 @@ describe("resolveRelative", () => {
     "returns null for invalid relative %s",
     (relative) => expect(resolveRelative("plans/a.html", relative)).toBeNull(),
   );
+
+  it("rejects encoded absolute paths and empty resolutions", () => {
+    expect(resolveRelative("plans/a.html", "%5Croot.html")).toBeNull();
+    expect(resolveRelative("a.html", ".")).toBeNull();
+  });
 });
 
 describe("classifyHref", () => {

@@ -96,6 +96,13 @@ describe("prepareHtml CSS policy", () => {
     expect(resourceUrl).toHaveBeenCalledWith("plans/feedflow/styles/page.css");
   });
 
+  it("removes link elements without a rel attribute", () => {
+    const document = parse(
+      prepareHtml('<link href="styles/page.css">', context()),
+    );
+    expect(document.querySelector("link")).toBeNull();
+  });
+
   it("strips all import forms while preserving surrounding CSS", () => {
     const css = `a{color:red}\n@import "a.css";\n@IMPORT url(https://x.test/b.css) screen;\nb{color:blue}`;
     const document = parse(prepareHtml(`<style>${css}</style>`, context()));

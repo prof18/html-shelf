@@ -161,6 +161,11 @@ describe("buildSections", () => {
     expect(result[0]?.entries[0]?.title).toBe("My sample page");
   });
 
+  it("falls back to the path when an HTML basename has no words", () => {
+    const result = buildSections([{ path: ".html" }], settings(), () => "");
+    expect(result[0]?.entries[0]?.title).toBe(".html");
+  });
+
   it("returns an empty array for empty input", () => {
     expect(buildSections([], settings(), titleFor)).toEqual([]);
   });

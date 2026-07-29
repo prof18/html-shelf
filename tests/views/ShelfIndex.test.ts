@@ -69,6 +69,22 @@ describe("ShelfIndex", () => {
     expect(harness.readCount("plans/readerflow/gamma.html")).toBe(0);
   });
 
+  it("applies a valid root manifest to a root-level page", async () => {
+    const harness = createFakeApp([
+      {
+        path: "html-shelf.json",
+        content: JSON.stringify({
+          entries: [{ path: "page.html", title: "Curated root" }],
+        }),
+      },
+      { path: "page.html", content: "<title>Ignored</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+
+    expect((await index.build())[0]?.entries[0]?.title).toBe("Curated root");
+    expect(harness.readCount("page.html")).toBe(0);
+  });
+
   it("caches titles by path and mtime", async () => {
     const harness = createFakeApp([
       { path: "page.html", content: "<title>First title</title>", mtime: 1 },

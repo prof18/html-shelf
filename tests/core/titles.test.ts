@@ -59,6 +59,7 @@ describe("extractTitleTag", () => {
   it("returns null when a complete prefix has no usable title", () => {
     expect(extractTitleTag("<title> </title><h1>Heading</h1>")).toBeNull();
     expect(extractTitleTag("<h1>Heading</h1>")).toBeNull();
+    expect(extractTitleTag("</title><h1>Heading</h1>")).toBeNull();
   });
 
   it("applies the display-title length cap", () => {

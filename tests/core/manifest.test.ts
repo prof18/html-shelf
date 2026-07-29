@@ -33,6 +33,13 @@ describe("parseLibraryManifest", () => {
     });
   });
 
+  it("accepts a manifest without an optional title", () => {
+    expect(parseLibraryManifest('{"entries":[]}')).toEqual({
+      ok: true,
+      manifest: { entries: [] },
+    });
+  });
+
   it.each([
     "null",
     "[]",
