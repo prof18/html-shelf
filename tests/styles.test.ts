@@ -26,6 +26,18 @@ describe("shelf styles", () => {
     expect(styles.paddingBottom).toBe("10px");
   });
 
+  it("keeps the final shelf entry above mobile floating navigation", () => {
+    document.head.innerHTML = `<style>${pluginStyles}</style>`;
+    document.body.className = "is-mobile";
+    document.body.innerHTML = `<div class="hs-sections"></div>`;
+
+    const sections = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-sections")!,
+    );
+
+    expect(sections.paddingBottom).toBe("112px");
+  });
+
   it("gives the HTML iframe full control of page scrolling", () => {
     document.head.innerHTML = `<style>${pluginStyles}</style>`;
     document.body.innerHTML = `

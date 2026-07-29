@@ -73,6 +73,10 @@ button.hs-pagebar-button {
   padding-bottom: 24px;
 }
 
+body.is-mobile .hs-sections {
+  padding-bottom: 112px;
+}
+
 .hs-section-header {
   position: sticky;
   top: 0;
