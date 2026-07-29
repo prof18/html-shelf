@@ -74,7 +74,11 @@ button.hs-pagebar-button {
 }
 
 body.is-mobile .hs-sections {
-  padding-bottom: 112px;
+  padding-bottom: 176px;
+}
+
+body.is-mobile .workspace-leaf-content[data-type="html-shelf-page"] .hs-frame {
+  height: calc(100% - 176px);
 }
 
 .hs-section-header {

@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 const pluginStyles = readFileSync("styles.css", "utf8");
 
 describe("shelf styles", () => {
+  beforeEach(() => {
+    document.body.className = "";
+  });
+
   it("lets two-line entry buttons grow beyond Obsidian's control height", () => {
     document.head.innerHTML = `
       <style>button { height: 32px; }</style>
@@ -35,7 +39,7 @@ describe("shelf styles", () => {
       document.querySelector<HTMLElement>(".hs-sections")!,
     );
 
-    expect(sections.paddingBottom).toBe("112px");
+    expect(sections.paddingBottom).toBe("176px");
   });
 
   it("gives the HTML iframe full control of page scrolling", () => {
@@ -56,6 +60,22 @@ describe("shelf styles", () => {
     expect(frameStyles.width).toBe("100%");
     expect(frameStyles.height).toBe("100%");
     expect(frameStyles.borderTopWidth).toBe("0px");
+  });
+
+  it("keeps rendered-page scrolling above mobile floating navigation", () => {
+    document.head.innerHTML = `<style>${pluginStyles}</style>`;
+    document.body.className = "is-mobile";
+    document.body.innerHTML = `
+      <div class="workspace-leaf-content" data-type="html-shelf-page">
+        <div class="view-content"><iframe class="hs-frame"></iframe></div>
+      </div>
+    `;
+
+    const frame = getComputedStyle(
+      document.querySelector<HTMLIFrameElement>(".hs-frame")!,
+    );
+
+    expect(frame.height).toBe("calc(100% - 176px)");
   });
 
   it("positions the page controls as compact floating chrome", () => {
