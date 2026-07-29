@@ -18,6 +18,10 @@ const manifest: PluginManifest = {
   description: "Test manifest",
 };
 
+const markFramePrepared = (frame: HTMLIFrameElement): void => {
+  frame.contentDocument!.documentElement.dataset.hsTheme = "light";
+};
+
 describe("HtmlView", () => {
   afterEach(() => {
     Platform.isMobile = false;
@@ -102,6 +106,24 @@ describe("HtmlView", () => {
     expect(view.getDisplayText()).toBe("Rendered page");
   });
 
+  it("sets srcdoc before mounting the iframe", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const appendChild = view.contentEl.appendChild.bind(view.contentEl);
+    let srcdocAtInsertion = "";
+    vi.spyOn(view.contentEl, "appendChild").mockImplementation((node) => {
+      if (node instanceof HTMLIFrameElement) srcdocAtInsertion = node.srcdoc;
+      return appendChild(node);
+    });
+
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+
+    expect(srcdocAtInsertion).toContain("<title>Page</title>");
+  });
+
   it("uses Obsidian's platform API for mobile page clearance", async () => {
     document.body.classList.remove("is-mobile");
     Platform.isMobile = true;
@@ -156,6 +178,11 @@ describe("HtmlView", () => {
     target.scrollIntoView = scrollIntoView;
     frame.contentDocument!.body.append(target);
 
+    frame.dispatchEvent(new Event("load"));
+    expect(wiredFrames).toEqual([]);
+    expect(view.pendingAnchor).toBe("target");
+
+    markFramePrepared(frame);
     frame.dispatchEvent(new Event("load"));
 
     expect(wiredFrames).toEqual([frame]);
@@ -218,6 +245,7 @@ describe("HtmlView", () => {
       }),
     );
     frame.contentDocument!.body.append(anchor);
+    markFramePrepared(frame);
     frame.dispatchEvent(new Event("load"));
 
     anchor.dispatchEvent(
@@ -307,6 +335,7 @@ describe("HtmlView", () => {
       doc.body.append(anchor);
       anchor.click();
     };
+    markFramePrepared(frame);
     frame.dispatchEvent(new Event("load"));
 
     clickTarget({ kind: "anchor", anchor: "detail" });
@@ -348,6 +377,7 @@ describe("HtmlView", () => {
       value: scrollTo,
       configurable: true,
     });
+    markFramePrepared(frame);
     frame.dispatchEvent(new Event("load"));
     expect(scrollTo).toHaveBeenCalledWith(0, 146);
   });

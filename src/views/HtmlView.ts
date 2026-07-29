@@ -131,26 +131,31 @@ export class HtmlView extends FileView {
       theme: isDarkTheme() ? "dark" : "light",
     });
     this.contentEl.empty();
-    const frame = this.contentEl.createEl("iframe", { cls: "hs-frame" });
+    const frame = document.createElement("iframe");
+    frame.className = "hs-frame";
     this.frame = frame;
     frame.setAttribute("sandbox", "allow-same-origin");
-    this.renderPagebar();
-    frame.addEventListener(
-      "load",
-      () => {
-        this.wireLinks(frame);
-        if (this.pendingAnchor) {
-          this.scrollToAnchor(this.pendingAnchor);
-          this.pendingAnchor = null;
-        }
-        if (this.pendingScrollY !== null) {
-          frame.contentWindow?.scrollTo(0, this.pendingScrollY);
-          this.pendingScrollY = null;
-        }
-      },
-      { once: true },
-    );
+    frame.addEventListener("load", () => {
+      const loadedDocument = frame.contentDocument;
+      if (
+        !loadedDocument?.documentElement.hasAttribute("data-hs-theme") ||
+        this.documentListener?.doc === loadedDocument
+      ) {
+        return;
+      }
+      this.wireLinks(frame);
+      if (this.pendingAnchor) {
+        this.scrollToAnchor(this.pendingAnchor);
+        this.pendingAnchor = null;
+      }
+      if (this.pendingScrollY !== null) {
+        frame.contentWindow?.scrollTo(0, this.pendingScrollY);
+        this.pendingScrollY = null;
+      }
+    });
     frame.srcdoc = prepared;
+    this.contentEl.appendChild(frame);
+    this.renderPagebar();
   }
 
   protected wireLinks(frame: HTMLIFrameElement): void {
