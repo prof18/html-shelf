@@ -1,4 +1,5 @@
-import { classifyHref, normalizeHrefForScheme, resolveRelative } from "./links";
+import { resolveRelativeResourcePath } from "./assets";
+import { classifyHref, normalizeHrefForScheme } from "./links";
 
 export interface SanitizeContext {
   filePath: string;
@@ -9,30 +10,13 @@ export interface SanitizeContext {
 
 const navigableAttributes = new Set(["href", "src", "xlink:href"]);
 
-const relativeResourcePath = (
-  value: string,
-  filePath: string,
-): string | null => {
-  const schemeSafe = normalizeHrefForScheme(value);
-  if (
-    !value ||
-    value.startsWith("/") ||
-    value.startsWith("#") ||
-    schemeSafe.startsWith("//") ||
-    /^[a-z][a-z0-9+.-]*:/i.test(schemeSafe)
-  ) {
-    return null;
-  }
-  return resolveRelative(filePath, value);
-};
-
 const rewriteAttribute = (
   element: Element,
   attribute: string,
   context: SanitizeContext,
 ): void => {
   const value = element.getAttribute(attribute)!;
-  const path = relativeResourcePath(value, context.filePath);
+  const path = resolveRelativeResourcePath(value, context.filePath);
   if (path) element.setAttribute(attribute, context.resourceUrl(path));
 };
 
@@ -83,7 +67,7 @@ export function prepareHtml(raw: string, context: SanitizeContext): string {
     if (
       href === null ||
       !rels.includes("stylesheet") ||
-      relativeResourcePath(href, context.filePath) === null
+      resolveRelativeResourcePath(href, context.filePath) === null
     ) {
       link.remove();
     }

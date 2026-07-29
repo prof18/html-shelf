@@ -8,6 +8,7 @@ import {
   type WorkspaceLeaf,
 } from "obsidian";
 import type HtmlShelfPlugin from "../main";
+import { loadInlineImageUrls } from "../core/assets";
 import { deriveTitle } from "../core/titles";
 import { prepareHtml } from "../core/sanitize";
 import { VIEW_TYPE_HTML } from "./view-types";
@@ -113,10 +114,20 @@ export class HtmlView extends FileView {
       return;
     }
 
+    const inlineImageUrls = Platform.isIosApp
+      ? await loadInlineImageUrls(raw, file.path, async (path) => {
+          const asset = this.app.vault.getAbstractFileByPath(path);
+          return asset instanceof TFile
+            ? this.app.vault.readBinary(asset)
+            : Promise.resolve(null);
+        })
+      : new Map<string, string>();
     const prepared = prepareHtml(raw, {
       filePath: file.path,
       mobile: Platform.isMobile,
-      resourceUrl: (path) => this.app.vault.adapter.getResourcePath(path),
+      resourceUrl: (path) =>
+        inlineImageUrls.get(path) ??
+        this.app.vault.adapter.getResourcePath(path),
       theme: isDarkTheme() ? "dark" : "light",
     });
     this.contentEl.empty();

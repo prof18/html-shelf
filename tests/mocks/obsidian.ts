@@ -260,4 +260,8 @@ export const setIcon = (element: HTMLElement, icon: string): void => {
   void icon;
 };
 
-export const Platform = { isMobile: false };
+export const Platform = {
+  isAndroidApp: false,
+  isIosApp: false,
+  isMobile: false,
+};

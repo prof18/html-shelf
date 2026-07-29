@@ -21,6 +21,7 @@ const manifest: PluginManifest = {
 describe("HtmlView", () => {
   afterEach(() => {
     Platform.isMobile = false;
+    Platform.isIosApp = false;
     document.body.classList.remove("theme-dark");
     document.body.replaceChildren();
     noticeMessages.splice(0);
@@ -115,6 +116,22 @@ describe("HtmlView", () => {
     expect(
       view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")?.srcdoc,
     ).toContain('data-hs-mobile="true"');
+  });
+
+  it("inlines local images in the iOS renderer", async () => {
+    Platform.isIosApp = true;
+    const harness = createFakeApp([
+      { path: "plans/page.html", content: '<img src="diagram.png">' },
+      { path: "plans/diagram.png", content: "png bytes" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.onLoadFile(harness.file("plans/page.html")! as unknown as TFile);
+
+    expect(
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")?.srcdoc,
+    ).toContain('src="data:image/png;base64,cG5nIGJ5dGVz"');
   });
 
   it("wires the loaded document and consumes a pending anchor", async () => {
