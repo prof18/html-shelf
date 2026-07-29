@@ -70,18 +70,6 @@ button.hs-pagebar-button {
   letter-spacing: -0.02em;
 }
 
-.hs-build-marker {
-  margin: -4px 0 12px;
-  padding: 6px 9px;
-  border: 1px solid var(--color-orange);
-  border-radius: var(--radius-s);
-  background: var(--background-modifier-warning);
-  color: var(--text-normal);
-  font-family: var(--font-monospace);
-  font-size: var(--font-ui-smaller);
-  font-weight: var(--font-semibold);
-}
-
 .hs-search {
   width: 100%;
 }
