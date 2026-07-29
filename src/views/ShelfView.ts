@@ -34,6 +34,10 @@ export class ShelfView extends ItemView {
     shelf.classList.toggle("hs-mobile", Platform.isMobile);
     const toolbar = shelf.createDiv({ cls: "hs-toolbar" });
     toolbar.createEl("h1", { cls: "hs-title", text: "HTML shelf" });
+    toolbar.createDiv({
+      cls: "hs-build-marker",
+      text: "Test build: ios-links-20260729-1",
+    });
     const search = toolbar.createEl("input", {
       cls: "hs-search",
       attr: {

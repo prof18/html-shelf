@@ -86,6 +86,9 @@ describe("ShelfView rendering", () => {
     expect(
       view.contentEl.querySelector(".hs-search")?.getAttribute("placeholder"),
     ).toBe("Filter pages…");
+    expect(view.contentEl.querySelector(".hs-build-marker")?.textContent).toBe(
+      "Test build: ios-links-20260729-1",
+    );
     expect(
       [...view.contentEl.querySelectorAll(".hs-section-header")].map(
         (element) => element.textContent,
