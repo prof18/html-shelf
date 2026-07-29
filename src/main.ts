@@ -1,16 +1,39 @@
-import { Plugin } from "obsidian";
+import { Notice, Plugin } from "obsidian";
 import { DEFAULT_SETTINGS } from "./core/model";
+import { HtmlView } from "./views/HtmlView";
 import { ShelfIndex } from "./views/ShelfIndex";
 import { ShelfView } from "./views/ShelfView";
-import { VIEW_TYPE_SHELF } from "./views/view-types";
+import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./views/view-types";
 
 export default class HtmlShelfPlugin extends Plugin {
+  extensionsRegistered = false;
+  private extensionConflictNoticed = false;
+
   onload(): void {
     const index = new ShelfIndex(this.app, () => DEFAULT_SETTINGS);
     this.registerView(
       VIEW_TYPE_SHELF,
-      (leaf) => new ShelfView(leaf, index, () => DEFAULT_SETTINGS),
+      (leaf) =>
+        new ShelfView(
+          leaf,
+          index,
+          () => DEFAULT_SETTINGS,
+          () => this.extensionsRegistered,
+        ),
     );
+    this.registerView(VIEW_TYPE_HTML, (leaf) => new HtmlView(leaf, this));
+    try {
+      this.registerExtensions(["html", "htm"], VIEW_TYPE_HTML);
+      this.extensionsRegistered = true;
+    } catch {
+      this.extensionsRegistered = false;
+      if (!this.extensionConflictNoticed) {
+        this.extensionConflictNoticed = true;
+        new Notice(
+          "HTML Shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
+        );
+      }
+    }
     this.addRibbonIcon("library", "Open HTML shelf", () =>
       this.activateShelf(),
     );

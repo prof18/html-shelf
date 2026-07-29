@@ -105,12 +105,20 @@ export class Component {
 
 export class WorkspaceLeaf {
   view: unknown = null;
-  state: { type: string; active?: boolean } = { type: "empty" };
+  state: {
+    type: string;
+    active?: boolean;
+    state?: Record<string, unknown>;
+  } = { type: "empty" };
   openedFiles: TFile[] = [];
 
   constructor(public app: unknown = {}) {}
 
-  setViewState(state: { type: string; active?: boolean }): Promise<void> {
+  setViewState(state: {
+    type: string;
+    active?: boolean;
+    state?: Record<string, unknown>;
+  }): Promise<void> {
     this.state = state;
     return Promise.resolve();
   }
@@ -146,7 +154,18 @@ export class ItemView extends Component {
 }
 
 export class FileView extends ItemView {
+  allowNoFile = false;
   file: TFile | null = null;
+
+  onLoadFile(file: TFile): Promise<void> {
+    this.file = file;
+    return Promise.resolve();
+  }
+
+  onUnloadFile(file: TFile): Promise<void> {
+    if (this.file === file) this.file = null;
+    return Promise.resolve();
+  }
 }
 
 export const registeredViews: {
@@ -163,6 +182,15 @@ export const registeredCommands: {
   name: string;
   callback: () => unknown;
 }[] = [];
+export const registeredExtensions: {
+  extensions: string[];
+  viewType: string;
+}[] = [];
+let registerExtensionsError: Error | null = null;
+
+export const setRegisterExtensionsError = (error: Error | null): void => {
+  registerExtensionsError = error;
+};
 
 export class Plugin extends Component {
   constructor(
@@ -174,6 +202,11 @@ export class Plugin extends Component {
 
   registerView(type: string, creator: (leaf: WorkspaceLeaf) => unknown): void {
     registeredViews.push({ type, creator });
+  }
+
+  registerExtensions(extensions: string[], viewType: string): void {
+    if (registerExtensionsError) throw registerExtensionsError;
+    registeredExtensions.push({ extensions, viewType });
   }
 
   addRibbonIcon(

@@ -22,6 +22,7 @@ export class ShelfView extends ItemView {
     leaf: WorkspaceLeaf,
     private readonly index: ShelfIndex,
     private readonly getSettings: () => ShelfSettings,
+    private readonly getExtensionsRegistered: () => boolean = () => true,
   ) {
     super(leaf);
   }
@@ -138,7 +139,15 @@ export class ShelfView extends ItemView {
 
     const file = this.app.vault.getAbstractFileByPath(entry.path);
     if (file instanceof TFile) {
-      await this.app.workspace.getLeaf(true).openFile(file);
+      const leaf = this.app.workspace.getLeaf(true);
+      if (this.getExtensionsRegistered()) {
+        await leaf.openFile(file);
+      } else {
+        await leaf.setViewState({
+          type: VIEW_TYPE_HTML,
+          state: { file: entry.path },
+        });
+      }
     } else {
       new Notice(`File no longer exists: ${entry.path}`);
     }

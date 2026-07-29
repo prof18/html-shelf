@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginManifest } from "obsidian";
 import HtmlShelfPlugin from "../../src/main";
 import { DEFAULT_SETTINGS } from "../../src/core/model";
+import { HtmlView } from "../../src/views/HtmlView";
 import { ShelfIndex } from "../../src/views/ShelfIndex";
 import { ShelfView } from "../../src/views/ShelfView";
-import { VIEW_TYPE_SHELF } from "../../src/views/view-types";
+import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "../../src/views/view-types";
 import {
   attachFileView,
   createFakeApp,
@@ -13,8 +14,11 @@ import {
 import {
   noticeMessages,
   registeredCommands,
+  registeredExtensions,
   registeredViews,
   ribbonItems,
+  setRegisterExtensionsError,
+  WorkspaceLeaf as MockWorkspaceLeaf,
 } from "../mocks/obsidian";
 
 const manifest: PluginManifest = {
@@ -136,6 +140,30 @@ describe("ShelfView rendering", () => {
     expect(noticeMessages).toEqual(["File no longer exists: page.html"]);
   });
 
+  it("forces the HTML view when extension registration is unavailable", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+      () => false,
+    );
+    await view.onOpen();
+
+    view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")?.click();
+    await Promise.resolve();
+
+    expect(harness.leaves).toHaveLength(1);
+    expect(harness.leaves[0]?.openedFiles).toHaveLength(0);
+    expect(harness.leaves[0]?.state).toEqual({
+      type: VIEW_TYPE_HTML,
+      state: { file: "page.html" },
+    });
+  });
+
   it("debounces search, preserves scroll, restores entries, and distinguishes no results", async () => {
     vi.useFakeTimers();
     const harness = createFakeApp([
@@ -250,19 +278,50 @@ describe("plugin shelf registration", () => {
   beforeEach(() => {
     registeredViews.splice(0);
     registeredCommands.splice(0);
+    registeredExtensions.splice(0);
     ribbonItems.splice(0);
+    noticeMessages.splice(0);
+    setRegisterExtensionsError(null);
   });
 
   it("registers the view, ribbon action, and command with sentence-case labels", () => {
     const harness = createFakeApp([]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
     plugin.onload();
-    expect(registeredViews.map(({ type }) => type)).toEqual([VIEW_TYPE_SHELF]);
+    expect(registeredViews.map(({ type }) => type)).toEqual([
+      VIEW_TYPE_SHELF,
+      VIEW_TYPE_HTML,
+    ]);
+    expect(registeredExtensions).toEqual([
+      { extensions: ["html", "htm"], viewType: VIEW_TYPE_HTML },
+    ]);
+    expect(plugin.extensionsRegistered).toBe(true);
+    const htmlFactory = registeredViews.find(
+      ({ type }) => type === VIEW_TYPE_HTML,
+    )!;
+    const htmlView = htmlFactory.creator(new MockWorkspaceLeaf(harness.app));
+    expect(htmlView).toBeInstanceOf(HtmlView);
+    expect((htmlView as HtmlView).plugin).toBe(plugin);
     expect(ribbonItems.map(({ icon, title }) => ({ icon, title }))).toEqual([
       { icon: "library", title: "Open HTML shelf" },
     ]);
     expect(registeredCommands.map(({ id, name }) => ({ id, name }))).toEqual([
       { id: "open-shelf", name: "Open shelf" },
+    ]);
+  });
+
+  it("keeps the shelf usable and shows one notice when extensions are claimed", () => {
+    setRegisterExtensionsError(new Error("already registered"));
+    const harness = createFakeApp([]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+
+    plugin.onload();
+    plugin.onload();
+
+    expect(plugin.extensionsRegistered).toBe(false);
+    expect(registeredExtensions).toEqual([]);
+    expect(noticeMessages).toEqual([
+      "HTML Shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
     ]);
   });
 
