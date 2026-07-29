@@ -1,5 +1,10 @@
 import type { App, WorkspaceLeaf as RealWorkspaceLeaf } from "obsidian";
-import { FileView, TFile as MockTFile, WorkspaceLeaf } from "./obsidian";
+import {
+  FileView,
+  TFile as MockTFile,
+  TFolder as MockTFolder,
+  WorkspaceLeaf,
+} from "./obsidian";
 
 export interface FakeFileInput {
   path: string;
@@ -46,6 +51,18 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
         ],
     ),
   );
+  const folders = new Map<string, MockTFolder>();
+  for (const { file } of records.values()) {
+    const parts = file.path.split("/").slice(0, -1);
+    for (let index = 1; index <= parts.length; index += 1) {
+      const path = parts.slice(0, index).join("/");
+      if (!folders.has(path)) {
+        const folder = new MockTFolder();
+        folder.path = path;
+        folders.set(path, folder);
+      }
+    }
+  }
 
   type VaultHandler = (file: MockTFile, oldPath?: string) => void;
   const handlers = new Map<string, Set<VaultHandler>>();
@@ -73,7 +90,8 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
     },
     getAbstractFileByPath: (path: string) => {
       const file = records.get(path)?.file;
-      return file?.path === path ? file : null;
+      if (file?.path === path) return file;
+      return folders.get(path) ?? null;
     },
     on: (event: string, handler: VaultHandler) => {
       const eventHandlers = handlers.get(event) ?? new Set<VaultHandler>();

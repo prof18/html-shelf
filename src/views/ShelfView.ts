@@ -24,6 +24,9 @@ export class ShelfView extends ItemView {
     private readonly index: ShelfIndex,
     private readonly getSettings: () => ShelfSettings,
     private readonly getExtensionsRegistered: () => boolean = () => true,
+    private readonly subscribeToSettings: (
+      callback: () => void,
+    ) => () => void = () => () => undefined,
   ) {
     super(leaf);
   }
@@ -66,6 +69,7 @@ export class ShelfView extends ItemView {
       if (this.searchTimer !== null) window.clearTimeout(this.searchTimer);
       if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
     });
+    this.register(this.subscribeToSettings(() => this.scheduleRefresh()));
     this.registerVaultEvents();
   }
 

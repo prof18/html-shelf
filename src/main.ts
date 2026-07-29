@@ -1,24 +1,29 @@
 import { Notice, Plugin } from "obsidian";
-import { DEFAULT_SETTINGS } from "./core/model";
+import { DEFAULT_SETTINGS, type ShelfSettings } from "./core/model";
+import { ShelfSettingTab } from "./settings";
 import { HtmlView } from "./views/HtmlView";
 import { ShelfIndex } from "./views/ShelfIndex";
 import { ShelfView } from "./views/ShelfView";
 import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./views/view-types";
 
 export default class HtmlShelfPlugin extends Plugin {
+  settings: ShelfSettings & Record<string, unknown> = { ...DEFAULT_SETTINGS };
   extensionsRegistered = false;
   private extensionConflictNoticed = false;
+  private readonly settingsListeners = new Set<() => void>();
 
-  onload(): void {
-    const index = new ShelfIndex(this.app, () => DEFAULT_SETTINGS);
+  onload(): Promise<void> {
+    const settingsLoaded = this.loadSettings();
+    const index = new ShelfIndex(this.app, () => this.settings);
     this.registerView(
       VIEW_TYPE_SHELF,
       (leaf) =>
         new ShelfView(
           leaf,
           index,
-          () => DEFAULT_SETTINGS,
+          () => this.settings,
           () => this.extensionsRegistered,
+          (callback) => this.onSettingsChanged(callback),
         ),
     );
     this.registerView(VIEW_TYPE_HTML, (leaf) => new HtmlView(leaf, this));
@@ -62,6 +67,27 @@ export default class HtmlShelfPlugin extends Plugin {
         }
       }),
     );
+    this.addSettingTab(new ShelfSettingTab(this.app, this));
+    return settingsLoaded;
+  }
+
+  async loadSettings(): Promise<void> {
+    const saved: unknown = await this.loadData();
+    const savedRecord: Record<string, unknown> =
+      typeof saved === "object" && saved !== null && !Array.isArray(saved)
+        ? (saved as Record<string, unknown>)
+        : {};
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedRecord);
+  }
+
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
+    for (const listener of this.settingsListeners) listener();
+  }
+
+  onSettingsChanged(callback: () => void): () => void {
+    this.settingsListeners.add(callback);
+    return () => this.settingsListeners.delete(callback);
   }
 
   async activateShelf(): Promise<void> {

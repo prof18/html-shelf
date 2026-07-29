@@ -272,6 +272,41 @@ describe("ShelfView rendering", () => {
     expect(view.contentEl.textContent).not.toContain("renamed.html");
   });
 
+  it("rebuilds through the existing debounce when settings change", async () => {
+    vi.useFakeTimers();
+    const harness = createFakeApp([
+      { path: "alpha.html", content: "<title>Alpha</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const build = vi.spyOn(index, "build");
+    const settingsSubscription: { callback: (() => void) | null } = {
+      callback: null,
+    };
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+      () => true,
+      (callback) => {
+        settingsSubscription.callback = callback;
+        return () => {
+          settingsSubscription.callback = null;
+        };
+      },
+    );
+    await view.onOpen();
+    expect(build).toHaveBeenCalledOnce();
+
+    settingsSubscription.callback?.();
+    await vi.advanceTimersByTimeAsync(249);
+    expect(build).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(build).toHaveBeenCalledTimes(2);
+
+    view.unload();
+    expect(settingsSubscription.callback).toBeNull();
+  });
+
   it("removes deleted HTML rows and notices html-to-text renames", async () => {
     vi.useFakeTimers();
     const harness = createFakeApp([
@@ -307,7 +342,7 @@ describe("plugin shelf registration", () => {
   it("registers the view, ribbon action, and command with sentence-case labels", () => {
     const harness = createFakeApp([]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
-    plugin.onload();
+    void plugin.onload();
     expect(registeredViews.map(({ type }) => type)).toEqual([
       VIEW_TYPE_SHELF,
       VIEW_TYPE_HTML,
@@ -336,8 +371,8 @@ describe("plugin shelf registration", () => {
     const harness = createFakeApp([]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
 
-    plugin.onload();
-    plugin.onload();
+    void plugin.onload();
+    void plugin.onload();
 
     expect(plugin.extensionsRegistered).toBe(false);
     expect(registeredExtensions).toEqual([]);
@@ -349,7 +384,7 @@ describe("plugin shelf registration", () => {
   it("reuses one shelf leaf across direct, ribbon, and command activation", async () => {
     const harness = createFakeApp([]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
-    plugin.onload();
+    await plugin.onload();
     await plugin.activateShelf();
     await ribbonItems[0]?.callback();
     await registeredCommands[0]?.callback?.();
@@ -370,7 +405,7 @@ describe("plugin shelf registration", () => {
       { path: "page.html", content: "<title>Page</title>" },
     ]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
-    plugin.onload();
+    void plugin.onload();
     const command = registeredCommands.find(
       ({ id }) => id === "open-page-back",
     )!;

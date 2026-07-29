@@ -506,7 +506,7 @@ describe("HtmlView", () => {
       { path: "page.html", content: "<title>Page</title>" },
     ]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);
-    plugin.onload();
+    await plugin.onload();
     const leaf = harness.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: VIEW_TYPE_HTML });
     const view = new HtmlView(leaf, plugin);
