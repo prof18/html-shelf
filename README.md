@@ -12,21 +12,17 @@ The screenshots use only the synthetic development vault included in this reposi
 
 ## Install
 
-### BRAT
+### Obsidian community plugins
 
-Until HTML Shelf is accepted into the Obsidian community directory:
-
-1. Install and enable [BRAT](https://github.com/TfTHacker/obsidian42-brat).
-2. Open **Settings → BRAT → Add Beta plugin**.
-3. Enter `https://github.com/prof18/html-shelf` and enable HTML Shelf.
+1. Open **Settings → Community plugins** in Obsidian.
+2. Select **Browse** and search for **HTML Shelf**.
+3. Select **Install**, then **Enable**.
 
 ### Manual
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
 2. Put all three files in `<vault>/.obsidian/plugins/html-shelf/`.
 3. Reload Obsidian, then enable **HTML Shelf** under **Settings → Community plugins**.
-
-Once the plugin is accepted, it will also be installable directly from Obsidian's community plugin browser.
 
 ## Usage
 
