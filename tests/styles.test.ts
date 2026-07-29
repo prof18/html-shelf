@@ -25,4 +25,24 @@ describe("shelf styles", () => {
     expect(styles.height).toBe("auto");
     expect(styles.paddingBottom).toBe("10px");
   });
+
+  it("gives the HTML iframe full control of page scrolling", () => {
+    document.head.innerHTML = `<style>${pluginStyles}</style>`;
+    document.body.innerHTML = `
+      <div class="workspace-leaf-content" data-type="html-shelf-page">
+        <div class="view-content"><iframe class="hs-frame"></iframe></div>
+      </div>
+    `;
+
+    const content = document.querySelector<HTMLElement>(".view-content")!;
+    const frame = document.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    const contentStyles = getComputedStyle(content);
+    const frameStyles = getComputedStyle(frame);
+
+    expect(contentStyles.overflow).toBe("hidden");
+    expect(contentStyles.padding).toBe("0px");
+    expect(frameStyles.width).toBe("100%");
+    expect(frameStyles.height).toBe("100%");
+    expect(frameStyles.borderTopWidth).toBe("0px");
+  });
 });

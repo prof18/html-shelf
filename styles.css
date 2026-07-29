@@ -4,6 +4,18 @@
   padding: 0;
 }
 
+.workspace-leaf-content[data-type="html-shelf-page"] .view-content {
+  overflow: hidden;
+  padding: 0;
+}
+
+.hs-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--background-primary);
+}
+
 .hs-shelf {
   display: flex;
   flex-direction: column;

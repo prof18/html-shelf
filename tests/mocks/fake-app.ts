@@ -53,6 +53,9 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
   };
 
   const vault = {
+    adapter: {
+      getResourcePath: (path: string) => `app://vault/${path}`,
+    },
     getFiles: () => [...records.values()].map((record) => record.file),
     cachedRead: (file: MockTFile) => {
       const record = records.get(file.path);
