@@ -413,6 +413,20 @@ describe("HtmlView", () => {
     expect(restored.canGoBack()).toBe(true);
   });
 
+  it("preserves navigation state when FileView changes only the file", async () => {
+    const harness = createFakeApp([
+      { path: "next.html", content: "<title>Next</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    view.history.push({ path: "previous.html", scrollY: 48 });
+
+    await view.setState({ file: "next.html" }, { history: false });
+
+    expect(view.history).toEqual([{ path: "previous.html", scrollY: 48 }]);
+    expect(view.canGoBack()).toBe(true);
+  });
+
   it("ignores malformed persisted navigation state", async () => {
     const harness = createFakeApp([]);
     const plugin = new HtmlShelfPlugin(harness.app, manifest);

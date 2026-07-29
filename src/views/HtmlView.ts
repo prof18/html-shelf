@@ -78,15 +78,19 @@ export class HtmlView extends FileView {
     state: Record<string, unknown>,
     result: ViewStateResult,
   ): Promise<void> {
-    const history = Array.isArray(state.htmlShelfHistory)
-      ? state.htmlShelfHistory.filter(isPageHistoryEntry)
-      : [];
-    this.history.splice(0, this.history.length, ...history);
-    const scrollY = state.htmlShelfScrollY;
-    this.pendingScrollY =
-      typeof scrollY === "number" && Number.isFinite(scrollY) && scrollY >= 0
-        ? scrollY
-        : null;
+    if (Object.prototype.hasOwnProperty.call(state, "htmlShelfHistory")) {
+      const history = Array.isArray(state.htmlShelfHistory)
+        ? state.htmlShelfHistory.filter(isPageHistoryEntry)
+        : [];
+      this.history.splice(0, this.history.length, ...history);
+    }
+    if (Object.prototype.hasOwnProperty.call(state, "htmlShelfScrollY")) {
+      const scrollY = state.htmlShelfScrollY;
+      this.pendingScrollY =
+        typeof scrollY === "number" && Number.isFinite(scrollY) && scrollY >= 0
+          ? scrollY
+          : null;
+    }
     this.updateBackButton();
     await super.setState(state, result);
   }
