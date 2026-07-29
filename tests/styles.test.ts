@@ -39,7 +39,7 @@ describe("shelf styles", () => {
       document.querySelector<HTMLElement>(".hs-sections")!,
     );
 
-    expect(sections.paddingBottom).toBe("176px");
+    expect(sections.paddingBottom).toBe("112px");
   });
 
   it("gives the HTML iframe full control of page scrolling", () => {

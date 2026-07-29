@@ -143,7 +143,7 @@ export function prepareHtml(raw: string, context: SanitizeContext): string {
   }
   const themeStyle = document.createElement("style");
   themeStyle.textContent =
-    ':root[data-hs-theme="dark"]{color-scheme:dark}:root[data-hs-theme="light"]{color-scheme:light}:root[data-hs-mobile="true"] body::after{content:"";display:block!important;width:100%!important;height:176px!important;min-height:176px!important;flex:0 0 176px!important;pointer-events:none!important}';
+    ':root[data-hs-theme="dark"]{color-scheme:dark}:root[data-hs-theme="light"]{color-scheme:light}:root[data-hs-mobile="true"] body::after{content:"";display:block!important;width:100%!important;height:112px!important;min-height:112px!important;flex:0 0 112px!important;pointer-events:none!important}';
   document.head.append(themeStyle);
 
   return `<!DOCTYPE html>${document.documentElement.outerHTML}`;

@@ -231,7 +231,7 @@ describe("prepareHtml link tagging and theme", () => {
     expect(document.head.lastElementChild?.textContent).toContain(
       "body::after",
     );
-    expect(document.head.lastElementChild?.textContent).toContain("176px");
+    expect(document.head.lastElementChild?.textContent).toContain("112px");
   });
 });
 
