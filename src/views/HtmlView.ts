@@ -46,9 +46,11 @@ export class HtmlView extends FileView {
   private title: string | null = null;
   private frame: HTMLIFrameElement | null = null;
   private frameReadyTimer: number | null = null;
+  private shadowScroller: HTMLElement | null = null;
+  private pageRoot: HTMLElement | null = null;
   private backButton: HTMLButtonElement | null = null;
   private documentListener: {
-    doc: Document;
+    target: Document | ShadowRoot;
     listener: EventListener;
   } | null = null;
 
@@ -75,8 +77,7 @@ export class HtmlView extends FileView {
     return {
       ...super.getState(),
       htmlShelfHistory: this.history.map((entry) => ({ ...entry })),
-      htmlShelfScrollY:
-        this.frame?.contentWindow?.scrollY ?? this.pendingScrollY ?? 0,
+      htmlShelfScrollY: this.currentScrollY(),
     };
   }
 
@@ -135,6 +136,10 @@ export class HtmlView extends FileView {
       theme: isDarkTheme() ? "dark" : "light",
     });
     this.contentEl.empty();
+    if (Platform.isIosApp) {
+      this.mountShadowPage(prepared);
+      return;
+    }
     const frame = document.createElement("iframe");
     frame.className = "hs-frame";
     this.frame = frame;
@@ -149,13 +154,17 @@ export class HtmlView extends FileView {
   }
 
   protected wireLinks(frame: HTMLIFrameElement): void {
-    this.removeDocumentListener();
     const doc = frame.contentDocument;
     if (!doc) return;
+    this.wireLinkTarget(doc);
+  }
+
+  private wireLinkTarget(target: Document | ShadowRoot): void {
+    this.removeDocumentListener();
     const listener = createLinkClickHandler(async (target) => {
       await routeLink(target, {
         currentPath: this.file?.path ?? null,
-        currentScrollY: this.frame?.contentWindow?.scrollY ?? 0,
+        currentScrollY: this.currentScrollY(),
         history: this.history,
         pageExists: (path) =>
           this.app.vault.getAbstractFileByPath(path) instanceof TFile,
@@ -172,14 +181,16 @@ export class HtmlView extends FileView {
       });
       this.updateBackButton();
     });
-    doc.addEventListener("click", listener);
-    this.documentListener = { doc, listener };
+    target.addEventListener("click", listener);
+    this.documentListener = { target, listener };
   }
 
   async onUnloadFile(file: TFile): Promise<void> {
     this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
+    this.shadowScroller = null;
+    this.pageRoot = null;
     this.backButton = null;
     await super.onUnloadFile(file);
   }
@@ -188,6 +199,8 @@ export class HtmlView extends FileView {
     this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
+    this.shadowScroller = null;
+    this.pageRoot = null;
     this.backButton = null;
     return Promise.resolve();
   }
@@ -197,7 +210,7 @@ export class HtmlView extends FileView {
   }
 
   updateTheme(theme: "dark" | "light"): void {
-    const root = this.frame?.contentDocument?.documentElement;
+    const root = this.pageRoot ?? this.frame?.contentDocument?.documentElement;
     if (root) root.dataset.hsTheme = theme;
   }
 
@@ -222,17 +235,71 @@ export class HtmlView extends FileView {
   }
 
   private scrollToAnchor(anchor: string): void {
+    const shadowTarget = this.pageRoot
+      ? [...this.pageRoot.querySelectorAll<HTMLElement>("[id],[name]")].find(
+          (element) =>
+            element.id === anchor || element.getAttribute("name") === anchor,
+        )
+      : null;
     const doc = this.frame?.contentDocument;
     const target =
-      doc?.getElementById(anchor) ?? doc?.getElementsByName(anchor)[0];
+      shadowTarget ??
+      doc?.getElementById(anchor) ??
+      doc?.getElementsByName(anchor)[0];
     target?.scrollIntoView();
   }
 
   private removeDocumentListener(): void {
     if (!this.documentListener) return;
-    const { doc, listener } = this.documentListener;
-    doc.removeEventListener("click", listener);
+    const { target, listener } = this.documentListener;
+    target.removeEventListener("click", listener);
     this.documentListener = null;
+  }
+
+  private mountShadowPage(prepared: string): void {
+    this.stopFrameReadyPolling();
+    this.frame = null;
+    const parsed = new DOMParser().parseFromString(prepared, "text/html");
+    for (const style of parsed.querySelectorAll("style")) {
+      style.textContent = style.textContent.replaceAll(":root", "html");
+    }
+
+    const host = this.contentEl.createDiv({ cls: "hs-shadow-frame" });
+    const shadow = host.attachShadow({ mode: "open" });
+    const shellStyle = document.createElement("style");
+    shellStyle.textContent =
+      ":host{display:block;width:100%;height:100%;overflow:auto}html{min-height:100%}";
+    const pageRoot = document.importNode(parsed.documentElement, true);
+    shadow.append(shellStyle, pageRoot);
+    this.shadowScroller = host;
+    this.pageRoot = pageRoot;
+    this.wireLinkTarget(shadow);
+    this.restorePendingPosition();
+    this.renderPagebar();
+  }
+
+  private currentScrollY(): number {
+    return (
+      this.shadowScroller?.scrollTop ??
+      this.frame?.contentWindow?.scrollY ??
+      this.pendingScrollY ??
+      0
+    );
+  }
+
+  private restorePendingPosition(): void {
+    if (this.pendingAnchor) {
+      this.scrollToAnchor(this.pendingAnchor);
+      this.pendingAnchor = null;
+    }
+    if (this.pendingScrollY !== null) {
+      if (this.shadowScroller) {
+        this.shadowScroller.scrollTop = this.pendingScrollY;
+      } else {
+        this.frame?.contentWindow?.scrollTo(0, this.pendingScrollY);
+      }
+      this.pendingScrollY = null;
+    }
   }
 
   private finishPreparedFrame(frame: HTMLIFrameElement): boolean {
@@ -241,17 +308,10 @@ export class HtmlView extends FileView {
     if (!loadedDocument?.documentElement.hasAttribute("data-hs-theme")) {
       return false;
     }
-    if (this.documentListener?.doc === loadedDocument) return true;
+    if (this.documentListener?.target === loadedDocument) return true;
 
     this.wireLinks(frame);
-    if (this.pendingAnchor) {
-      this.scrollToAnchor(this.pendingAnchor);
-      this.pendingAnchor = null;
-    }
-    if (this.pendingScrollY !== null) {
-      frame.contentWindow?.scrollTo(0, this.pendingScrollY);
-      this.pendingScrollY = null;
-    }
+    this.restorePendingPosition();
     return true;
   }
 
@@ -311,6 +371,8 @@ export class HtmlView extends FileView {
     this.stopFrameReadyPolling();
     this.contentEl.empty();
     this.frame = null;
+    this.shadowScroller = null;
+    this.pageRoot = null;
     this.backButton = null;
     this.contentEl.createDiv({ cls: "hs-page-message", text: message });
   }

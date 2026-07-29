@@ -79,6 +79,19 @@ describe("shelf styles", () => {
     expect(frame.height).toBe("100%");
   });
 
+  it("makes the iOS shadow renderer a full-height scroll container", () => {
+    document.head.innerHTML = `<style>${pluginStyles}</style>`;
+    document.body.innerHTML = `<div class="hs-shadow-frame"></div>`;
+
+    const renderer = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-shadow-frame")!,
+    );
+
+    expect(renderer.width).toBe("100%");
+    expect(renderer.height).toBe("100%");
+    expect(renderer.overflowY).toBe("auto");
+  });
+
   it("positions the page controls as compact floating chrome", () => {
     document.head.innerHTML = `<style>${pluginStyles}</style>`;
     document.body.innerHTML = `

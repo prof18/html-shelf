@@ -142,6 +142,7 @@ describe("HtmlView", () => {
   });
 
   it("inlines local images in the iOS renderer", async () => {
+    Platform.isMobile = true;
     Platform.isIosApp = true;
     const harness = createFakeApp([
       { path: "plans/page.html", content: '<img src="diagram.png">' },
@@ -152,9 +153,44 @@ describe("HtmlView", () => {
 
     await view.onLoadFile(harness.file("plans/page.html")! as unknown as TFile);
 
-    expect(
-      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")?.srcdoc,
-    ).toContain('src="data:image/png;base64,cG5nIGJ5dGVz"');
+    const host = view.contentEl.querySelector<HTMLElement>(".hs-shadow-frame");
+    expect(view.contentEl.querySelector("iframe")).toBeNull();
+    expect(host?.shadowRoot?.innerHTML).toContain(
+      'src="data:image/png;base64,cG5nIGJ5dGVz"',
+    );
+    expect(host?.shadowRoot?.querySelector("script")).toBeNull();
+  });
+
+  it("routes links inside the iOS shadow renderer", async () => {
+    Platform.isMobile = true;
+    Platform.isIosApp = true;
+    const harness = createFakeApp([
+      {
+        path: "page.html",
+        content: '<a href="#target">Jump</a><h2 id="target">Target</h2>',
+      },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+    const shadow =
+      view.contentEl.querySelector<HTMLElement>(
+        ".hs-shadow-frame",
+      )!.shadowRoot!;
+    const target = shadow.querySelector<HTMLElement>("#target")!;
+    const scrollIntoView = vi.fn();
+    target.scrollIntoView = scrollIntoView;
+
+    shadow.querySelector("a")!.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }),
+    );
+    await Promise.resolve();
+
+    expect(scrollIntoView).toHaveBeenCalledOnce();
   });
 
   it("wires the loaded document and consumes a pending anchor", async () => {
