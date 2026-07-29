@@ -222,10 +222,8 @@ describe("prepareHtml link tagging and theme", () => {
       const document = parse(output);
       expect(output.startsWith("<!DOCTYPE html>")).toBe(true);
       expect(document.documentElement.dataset.hsTheme).toBe(theme);
-      const styles = [...document.querySelectorAll("style")];
-      expect(styles[styles.length - 1]?.textContent).toContain(
-        `:root[data-hs-theme="${theme}"]`,
-      );
+      expect(document.documentElement.style.colorScheme).toBe(theme);
+      expect(document.querySelector("style")).toBeNull();
     },
   );
 
@@ -235,10 +233,11 @@ describe("prepareHtml link tagging and theme", () => {
     );
 
     expect(document.documentElement.dataset.hsMobile).toBe("true");
-    expect(document.head.lastElementChild?.textContent).toContain(
-      "body::after",
+    const clearance = document.querySelector<HTMLElement>(
+      ".hs-mobile-clearance",
     );
-    expect(document.head.lastElementChild?.textContent).toContain("112px");
+    expect(clearance?.getAttribute("aria-hidden")).toBe("true");
+    expect(clearance?.style.height).toBe("112px");
   });
 });
 

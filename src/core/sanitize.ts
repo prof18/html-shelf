@@ -122,13 +122,19 @@ export function prepareHtml(raw: string, context: SanitizeContext): string {
   }
 
   document.documentElement.setAttribute("data-hs-theme", context.theme);
+  const rootStyle = document.documentElement.getAttribute("style")?.trim();
+  document.documentElement.setAttribute(
+    "style",
+    `${rootStyle ? `${rootStyle.replace(/;?$/, ";")}` : ""}color-scheme:${context.theme}`,
+  );
   if (context.mobile) {
     document.documentElement.setAttribute("data-hs-mobile", "true");
+    const clearance = new DOMParser().parseFromString(
+      '<div class="hs-mobile-clearance" aria-hidden="true" style="display:block!important;width:100%!important;height:112px!important;min-height:112px!important;flex:0 0 112px!important;pointer-events:none!important"></div>',
+      "text/html",
+    ).body.firstElementChild;
+    if (clearance) document.body.append(clearance);
   }
-  const themeStyle = document.createElement("style");
-  themeStyle.textContent =
-    ':root[data-hs-theme="dark"]{color-scheme:dark}:root[data-hs-theme="light"]{color-scheme:light}:root[data-hs-mobile="true"] body::after{content:"";display:block!important;width:100%!important;height:112px!important;min-height:112px!important;flex:0 0 112px!important;pointer-events:none!important}';
-  document.head.append(themeStyle);
 
   return `<!DOCTYPE html>${document.documentElement.outerHTML}`;
 }

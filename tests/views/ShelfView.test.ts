@@ -26,7 +26,7 @@ const manifest: PluginManifest = {
   name: "HTML Shelf",
   author: "Marco Gomiero",
   version: "0.1.0",
-  minAppVersion: "1.5.0",
+  minAppVersion: "1.12.0",
   description: "Test manifest",
 };
 
@@ -118,7 +118,7 @@ describe("ShelfView rendering", () => {
       "No HTML files found in this vault.",
     );
     expect(view.contentEl.querySelector(".hs-empty")?.textContent).toContain(
-      "Your folder filters may be excluding them — check the HTML Shelf settings.",
+      "Your folder filters may be excluding them — check the HTML shelf settings.",
     );
   });
 
@@ -418,7 +418,7 @@ describe("plugin shelf registration", () => {
     expect(plugin.extensionsRegistered).toBe(false);
     expect(registeredExtensions).toEqual([]);
     expect(noticeMessages).toEqual([
-      "HTML Shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
+      "HTML shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
     ]);
   });
 

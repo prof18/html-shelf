@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.2] - 2026-07-29
+
+### Added
+
+- Searchable settings definitions for Obsidian 1.13 and newer, with the existing settings interface retained for Obsidian 1.12.
+- Signed build-provenance attestations and generated release notes for future GitHub releases.
+- Official Obsidian plugin lint rules in the local and CI quality gate.
+- Renovate configuration for scheduled, grouped dependency updates.
+
+### Changed
+
+- Raised the minimum supported Obsidian version from 1.5.0 to 1.12.0.
+- Replaced deprecated build tooling and newer-than-declared workspace APIs with supported alternatives.
+
+### Fixed
+
+- Removed runtime-created style elements while preserving theme hints, mobile bottom clearance, and iOS shadow rendering.
+
 ## [0.0.1] - 2026-07-29
 
 ### Added
@@ -20,4 +38,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - HTML sanitization removes scripts, handlers, embedded executable content, unsafe URLs, remote stylesheets, and inline CSS imports before rendering.
 
+[0.0.2]: https://github.com/prof18/html-shelf/compare/0.0.1...0.0.2
 [0.0.1]: https://github.com/prof18/html-shelf/releases/tag/0.0.1

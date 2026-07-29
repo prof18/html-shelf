@@ -140,8 +140,7 @@ export class HtmlView extends FileView {
       this.mountShadowPage(prepared);
       return;
     }
-    const frame = document.createElement("iframe");
-    frame.className = "hs-frame";
+    const frame = window.createEl("iframe", { cls: "hs-frame" });
     this.frame = frame;
     frame.setAttribute("sandbox", "allow-same-origin");
     frame.addEventListener("load", () => {
@@ -266,11 +265,13 @@ export class HtmlView extends FileView {
 
     const host = this.contentEl.createDiv({ cls: "hs-shadow-frame" });
     const shadow = host.attachShadow({ mode: "open" });
-    const shellStyle = document.createElement("style");
-    shellStyle.textContent =
-      ":host{display:block;width:100%;height:100%;overflow:auto}html{min-height:100%}";
     const pageRoot = document.importNode(parsed.documentElement, true);
-    shadow.append(shellStyle, pageRoot);
+    const rootStyle = pageRoot.getAttribute("style")?.trim();
+    pageRoot.setAttribute(
+      "style",
+      `${rootStyle ? `${rootStyle.replace(/;?$/, ";")}` : ""}min-height:100%`,
+    );
+    shadow.append(pageRoot);
     this.shadowScroller = host;
     this.pageRoot = pageRoot;
     this.wireLinkTarget(shadow);

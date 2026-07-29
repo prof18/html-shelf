@@ -11,7 +11,7 @@ const manifest: PluginManifest = {
   name: "HTML Shelf",
   author: "Marco Gomiero",
   version: "0.1.0",
-  minAppVersion: "1.5.0",
+  minAppVersion: "1.12.0",
   description: "Test manifest",
 };
 
@@ -105,6 +105,28 @@ describe("settings tab", () => {
     expect(settingRecords[0]!.setting.descEl.textContent).not.toContain(
       "not found in this vault",
     );
+  });
+
+  it("exposes searchable definitions while preserving normalized storage", async () => {
+    const harness = createFakeApp([]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const listener = vi.fn();
+    plugin.onSettingsChanged(listener);
+    const tab = new ShelfSettingTab(harness.app, plugin);
+
+    expect(tab.getSettingDefinitions()).toMatchObject([
+      { name: "Folders to include" },
+      { name: "Folders to exclude" },
+      { name: "Include .htm files" },
+    ]);
+    expect(tab.getControlValue("includeFolders")).toBe("");
+
+    await tab.setControlValue("includeFolders", "plans\n notes/deep \n");
+    await tab.setControlValue("includeHtm", false);
+
+    expect(plugin.settings.includeFolders).toEqual(["plans", "notes/deep"]);
+    expect(plugin.settings.includeHtm).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("keeps missing folders with an informational flag and saves toggle changes", async () => {

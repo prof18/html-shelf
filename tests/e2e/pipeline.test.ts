@@ -13,7 +13,7 @@ const manifest: PluginManifest = {
   name: "HTML Shelf",
   author: "Marco Gomiero",
   version: "0.1.0",
-  minAppVersion: "1.5.0",
+  minAppVersion: "1.12.0",
   description: "Test manifest",
 };
 

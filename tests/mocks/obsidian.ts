@@ -40,6 +40,30 @@ const applyElementOptions = (
   }
 };
 
+Object.defineProperties(window, {
+  createDiv: {
+    value(
+      options?:
+        string | { cls?: string; text?: string; attr?: Record<string, string> },
+    ): HTMLDivElement {
+      const element = document.createElement("div");
+      applyElementOptions(element, options);
+      return element;
+    },
+  },
+  createEl: {
+    value(
+      tag: keyof HTMLElementTagNameMap,
+      options?:
+        string | { cls?: string; text?: string; attr?: Record<string, string> },
+    ): HTMLElement {
+      const element = document.createElement(tag);
+      applyElementOptions(element, options);
+      return element;
+    },
+  },
+});
+
 Object.defineProperties(HTMLElement.prototype, {
   empty: {
     value(this: HTMLElement): void {
@@ -66,6 +90,18 @@ Object.defineProperties(HTMLElement.prototype, {
         string | { cls?: string; text?: string; attr?: Record<string, string> },
     ): HTMLElement {
       const element = document.createElement(tag);
+      applyElementOptions(element, options);
+      this.append(element);
+      return element;
+    },
+  },
+  createSpan: {
+    value(
+      this: HTMLElement,
+      options?:
+        string | { cls?: string; text?: string; attr?: Record<string, string> },
+    ): HTMLSpanElement {
+      const element = document.createElement("span");
       applyElementOptions(element, options);
       this.append(element);
       return element;

@@ -4,8 +4,11 @@ import {
   Setting,
   TFolder,
   type App,
+  type SettingDefinitionItem,
 } from "obsidian";
 import type HtmlShelfPlugin from "./main";
+
+type ShelfSettingKey = "includeFolders" | "excludeFolders" | "includeHtm";
 
 export const normalizeFolderLines = (value: string): string[] =>
   value
@@ -20,6 +23,62 @@ export class ShelfSettingTab extends PluginSettingTab {
     private readonly shelfPlugin: HtmlShelfPlugin,
   ) {
     super(app, shelfPlugin);
+  }
+
+  getSettingDefinitions(): SettingDefinitionItem<ShelfSettingKey>[] {
+    return [
+      {
+        name: "Folders to include",
+        desc: this.folderDescription(
+          "Empty means the entire vault. Enter one vault-relative folder path per line.",
+          "includeFolders",
+        ),
+        control: {
+          type: "textarea",
+          key: "includeFolders",
+          placeholder: "Folder/path",
+        },
+      },
+      {
+        name: "Folders to exclude",
+        desc: this.folderDescription(
+          "Enter one vault-relative folder path per line. Excludes win over includes.",
+          "excludeFolders",
+        ),
+        control: {
+          type: "textarea",
+          key: "excludeFolders",
+          placeholder: "Folder/path",
+        },
+      },
+      {
+        name: "Include .htm files",
+        desc: "Show .htm files in the shelf listing. Files opened directly still render when this is off.",
+        control: { type: "toggle", key: "includeHtm" },
+      },
+    ];
+  }
+
+  getControlValue(key: string): unknown {
+    if (key === "includeHtm") return this.shelfPlugin.settings.includeHtm;
+    if (key === "includeFolders" || key === "excludeFolders") {
+      return this.shelfPlugin.settings[key].join("\n");
+    }
+    return undefined;
+  }
+
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    if (key === "includeHtm" && typeof value === "boolean") {
+      this.shelfPlugin.settings.includeHtm = value;
+    } else if (
+      (key === "includeFolders" || key === "excludeFolders") &&
+      typeof value === "string"
+    ) {
+      this.shelfPlugin.settings[key] = normalizeFolderLines(value);
+    } else {
+      return;
+    }
+    await this.shelfPlugin.saveSettings();
   }
 
   display(): void {
@@ -79,7 +138,7 @@ export class ShelfSettingTab extends PluginSettingTab {
     updateDescription(initial);
     setting.addTextArea((textArea) =>
       textArea
-        .setPlaceholder("folder/path")
+        .setPlaceholder("Folder/path")
         .setValue(initial.join("\n"))
         .onChange(async (value) => {
           const paths = normalizeFolderLines(value);
@@ -88,5 +147,17 @@ export class ShelfSettingTab extends PluginSettingTab {
           await this.shelfPlugin.saveSettings();
         }),
     );
+  }
+
+  private folderDescription(
+    description: string,
+    key: "includeFolders" | "excludeFolders",
+  ): string {
+    const missing = this.shelfPlugin.settings[key].filter(
+      (path) =>
+        !(this.app.vault.getAbstractFileByPath(path) instanceof TFolder),
+    );
+    if (missing.length === 0) return description;
+    return `${description} Not found in this vault: ${missing.join(", ")}.`;
   }
 }

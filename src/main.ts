@@ -35,7 +35,7 @@ export default class HtmlShelfPlugin extends Plugin {
       if (!this.extensionConflictNoticed) {
         this.extensionConflictNoticed = true;
         new Notice(
-          "HTML Shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
+          "HTML shelf could not register as the HTML file viewer — another plugin already handles HTML files. The shelf will still open pages.",
         );
       }
     }
@@ -95,6 +95,6 @@ export default class HtmlShelfPlugin extends Plugin {
       this.app.workspace.getLeavesOfType(VIEW_TYPE_SHELF)[0] ??
       this.app.workspace.getLeaf(true);
     await leaf.setViewState({ type: VIEW_TYPE_SHELF, active: true });
-    await this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
   }
 }

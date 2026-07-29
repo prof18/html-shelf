@@ -103,7 +103,7 @@ export class ShelfView extends ItemView {
       empty.createEl("p", { text: "No HTML files found in this vault." });
       if (this.getSettings().includeFolders.length > 0) {
         empty.createEl("p", {
-          text: "Your folder filters may be excluding them — check the HTML Shelf settings.",
+          text: "Your folder filters may be excluding them — check the HTML shelf settings.",
         });
       }
       return;
@@ -112,8 +112,8 @@ export class ShelfView extends ItemView {
     for (const section of sections) {
       const sectionElement = sectionsElement.createDiv({ cls: "hs-section" });
       const header = sectionElement.createDiv({ cls: "hs-section-header" });
-      header.createEl("span", { text: section.name });
-      header.createEl("span", {
+      header.createSpan({ text: section.name });
+      header.createSpan({
         cls: "hs-section-count",
         text: String(section.entries.length),
       });
@@ -122,8 +122,8 @@ export class ShelfView extends ItemView {
           cls: "hs-entry",
           attr: { type: "button" },
         });
-        button.createEl("span", { cls: "hs-entry-title", text: entry.title });
-        button.createEl("span", { cls: "hs-entry-path", text: entry.path });
+        button.createSpan({ cls: "hs-entry-title", text: entry.title });
+        button.createSpan({ cls: "hs-entry-path", text: entry.path });
         this.registerDomEvent(button, "click", () => {
           void this.openEntry(entry);
         });
@@ -139,7 +139,7 @@ export class ShelfView extends ItemView {
           leaf.view instanceof FileView && leaf.view.file?.path === entry.path,
       );
     if (existing) {
-      await this.app.workspace.revealLeaf(existing);
+      this.app.workspace.setActiveLeaf(existing, { focus: true });
       return;
     }
 
