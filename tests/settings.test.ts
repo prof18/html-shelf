@@ -86,6 +86,7 @@ describe("settings tab", () => {
     const tab = new ShelfSettingTab(harness.app, plugin);
     tab.display();
 
+    expect(tab.containerEl.querySelector("h1,h2")).toBeNull();
     expect(tab.containerEl.textContent).toContain(
       "HTML Shelf lists every HTML file in the scope below.",
     );

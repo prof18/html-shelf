@@ -24,7 +24,6 @@ export class ShelfSettingTab extends PluginSettingTab {
 
   display(): void {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: "HTML Shelf" });
     const introduction = this.containerEl.createEl("p");
     introduction.append(
       "HTML Shelf lists every HTML file in the scope below. Folders can also provide curated titles and sections with an ",
