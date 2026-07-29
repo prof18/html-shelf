@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PluginManifest } from "obsidian";
+import { Platform, type PluginManifest } from "obsidian";
 import HtmlShelfPlugin from "../../src/main";
 import { DEFAULT_SETTINGS } from "../../src/core/model";
 import { HtmlView } from "../../src/views/HtmlView";
@@ -47,7 +47,27 @@ describe("ShelfView metadata", () => {
 
 describe("ShelfView rendering", () => {
   beforeEach(() => noticeMessages.splice(0));
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    Platform.isMobile = false;
+    vi.useRealTimers();
+  });
+
+  it("marks the shelf as mobile from Obsidian's platform API", async () => {
+    Platform.isMobile = true;
+    const harness = createFakeApp([]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+
+    await view.onOpen();
+
+    expect(view.contentEl.querySelector(".hs-shelf")?.classList).toContain(
+      "hs-mobile",
+    );
+  });
 
   it("renders grouped entries as semantic buttons and opens a file", async () => {
     const harness = createFakeApp([

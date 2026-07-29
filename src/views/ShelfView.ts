@@ -2,6 +2,7 @@ import {
   FileView,
   ItemView,
   Notice,
+  Platform,
   TFile,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -30,6 +31,7 @@ export class ShelfView extends ItemView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     const shelf = this.contentEl.createDiv({ cls: "hs-shelf" });
+    shelf.classList.toggle("hs-mobile", Platform.isMobile);
     const toolbar = shelf.createDiv({ cls: "hs-toolbar" });
     toolbar.createEl("h1", { cls: "hs-title", text: "HTML shelf" });
     const search = toolbar.createEl("input", {

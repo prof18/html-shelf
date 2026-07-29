@@ -32,8 +32,9 @@ describe("shelf styles", () => {
 
   it("keeps the final shelf entry above mobile floating navigation", () => {
     document.head.innerHTML = `<style>${pluginStyles}</style>`;
-    document.body.className = "is-mobile";
-    document.body.innerHTML = `<div class="hs-sections"></div>`;
+    document.body.innerHTML = `
+      <div class="hs-shelf hs-mobile"><div class="hs-sections"></div></div>
+    `;
 
     const sections = getComputedStyle(
       document.querySelector<HTMLElement>(".hs-sections")!,

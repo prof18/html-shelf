@@ -73,7 +73,7 @@ button.hs-pagebar-button {
   padding-bottom: 24px;
 }
 
-body.is-mobile .hs-sections {
+.hs-shelf.hs-mobile .hs-sections {
   padding-bottom: 112px;
 }
 

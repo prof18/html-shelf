@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FileView, type PluginManifest, type TFile } from "obsidian";
+import { FileView, Platform, type PluginManifest, type TFile } from "obsidian";
 import HtmlShelfPlugin from "../../src/main";
 import { HtmlView } from "../../src/views/HtmlView";
 import { VIEW_TYPE_HTML } from "../../src/views/view-types";
@@ -20,6 +20,7 @@ const manifest: PluginManifest = {
 
 describe("HtmlView", () => {
   afterEach(() => {
+    Platform.isMobile = false;
     document.body.classList.remove("theme-dark");
     document.body.replaceChildren();
     noticeMessages.splice(0);
@@ -98,6 +99,22 @@ describe("HtmlView", () => {
     expect(frame?.srcdoc).not.toContain("<script");
     expect(harness.readCount(file.path)).toBe(1);
     expect(view.getDisplayText()).toBe("Rendered page");
+  });
+
+  it("uses Obsidian's platform API for mobile page clearance", async () => {
+    document.body.classList.remove("is-mobile");
+    Platform.isMobile = true;
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Mobile page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+
+    expect(
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")?.srcdoc,
+    ).toContain('data-hs-mobile="true"');
   });
 
   it("wires the loaded document and consumes a pending anchor", async () => {
