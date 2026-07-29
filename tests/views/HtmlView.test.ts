@@ -358,4 +358,82 @@ describe("HtmlView", () => {
     shelf?.click();
     expect(activateShelf).toHaveBeenCalledOnce();
   });
+
+  it("reacts to css-change without rereading or replacing srcdoc", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    plugin.onload();
+    const leaf = harness.app.workspace.getLeaf(true);
+    await leaf.setViewState({ type: VIEW_TYPE_HTML });
+    const view = new HtmlView(leaf, plugin);
+    (leaf as unknown as MockWorkspaceLeaf).view = view;
+    document.body.append(view.containerEl);
+    await view.onLoadFile(harness.file("page.html")! as unknown as TFile);
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    frame.contentDocument!.documentElement.dataset.hsTheme = "light";
+    const srcdoc = frame.srcdoc;
+    const reads = harness.readCount("page.html");
+    document.body.classList.add("theme-dark");
+
+    harness.emitWorkspace("css-change");
+
+    expect(frame.contentDocument?.documentElement.dataset.hsTheme).toBe("dark");
+    expect(frame.srcdoc).toBe(srcdoc);
+    expect(harness.readCount("page.html")).toBe(reads);
+  });
+
+  it("round-trips FileView history and scroll state", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const first = new HtmlView(createFakeLeaf(harness.app), plugin);
+    document.body.append(first.containerEl);
+    await first.onLoadFile(harness.file("page.html")! as unknown as TFile);
+    first.history.push({ path: "previous.html", scrollY: 32 });
+    const firstFrame =
+      first.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    Object.defineProperty(firstFrame.contentWindow, "scrollY", {
+      value: 218,
+      configurable: true,
+    });
+
+    const state = first.getState();
+    const restored = new HtmlView(createFakeLeaf(harness.app), plugin);
+    await restored.setState(state, { history: false });
+
+    expect(state.file).toBe("page.html");
+    expect(restored.getState()).toMatchObject({
+      file: "page.html",
+      htmlShelfHistory: [{ path: "previous.html", scrollY: 32 }],
+      htmlShelfScrollY: 218,
+    });
+    expect(restored.canGoBack()).toBe(true);
+  });
+
+  it("ignores malformed persisted navigation state", async () => {
+    const harness = createFakeApp([]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.setState(
+      {
+        htmlShelfHistory: [
+          null,
+          { path: 42, scrollY: "bad" },
+          { path: "valid.html", scrollY: -1 },
+        ],
+        htmlShelfScrollY: "bad",
+      },
+      { history: false },
+    );
+
+    expect(view.history).toEqual([]);
+    expect(view.getState()).toMatchObject({
+      htmlShelfHistory: [],
+      htmlShelfScrollY: 0,
+    });
+  });
 });

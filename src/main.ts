@@ -52,6 +52,16 @@ export default class HtmlShelfPlugin extends Plugin {
         return true;
       },
     });
+    this.registerEvent(
+      this.app.workspace.on("css-change", () => {
+        const theme = document.body.classList.contains("theme-dark")
+          ? "dark"
+          : "light";
+        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_HTML)) {
+          if (leaf.view instanceof HtmlView) leaf.view.updateTheme(theme);
+        }
+      }),
+    );
   }
 
   async activateShelf(): Promise<void> {

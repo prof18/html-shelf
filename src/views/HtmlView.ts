@@ -1,4 +1,11 @@
-import { FileView, Notice, setIcon, TFile, type WorkspaceLeaf } from "obsidian";
+import {
+  FileView,
+  Notice,
+  setIcon,
+  TFile,
+  type ViewStateResult,
+  type WorkspaceLeaf,
+} from "obsidian";
 import type HtmlShelfPlugin from "../main";
 import { deriveTitle } from "../core/titles";
 import { prepareHtml } from "../core/sanitize";
@@ -11,6 +18,20 @@ import {
 
 const isDarkTheme = (): boolean =>
   document.body.classList.contains("theme-dark");
+
+const isPageHistoryEntry = (entry: unknown): entry is PageHistoryEntry => {
+  if (typeof entry !== "object" || entry === null) return false;
+  const record = entry as Record<string, unknown>;
+  const path = record.path;
+  const scrollY = record.scrollY;
+  return (
+    typeof path === "string" &&
+    path.length > 0 &&
+    typeof scrollY === "number" &&
+    Number.isFinite(scrollY) &&
+    scrollY >= 0
+  );
+};
 
 export class HtmlView extends FileView {
   allowNoFile = false;
@@ -42,6 +63,32 @@ export class HtmlView extends FileView {
 
   getIcon(): string {
     return "file-code-2";
+  }
+
+  getState(): Record<string, unknown> {
+    return {
+      ...super.getState(),
+      htmlShelfHistory: this.history.map((entry) => ({ ...entry })),
+      htmlShelfScrollY:
+        this.frame?.contentWindow?.scrollY ?? this.pendingScrollY ?? 0,
+    };
+  }
+
+  async setState(
+    state: Record<string, unknown>,
+    result: ViewStateResult,
+  ): Promise<void> {
+    const history = Array.isArray(state.htmlShelfHistory)
+      ? state.htmlShelfHistory.filter(isPageHistoryEntry)
+      : [];
+    this.history.splice(0, this.history.length, ...history);
+    const scrollY = state.htmlShelfScrollY;
+    this.pendingScrollY =
+      typeof scrollY === "number" && Number.isFinite(scrollY) && scrollY >= 0
+        ? scrollY
+        : null;
+    this.updateBackButton();
+    await super.setState(state, result);
   }
 
   async onLoadFile(file: TFile): Promise<void> {
@@ -133,6 +180,11 @@ export class HtmlView extends FileView {
 
   canGoBack(): boolean {
     return this.history.length > 0;
+  }
+
+  updateTheme(theme: "dark" | "light"): void {
+    const root = this.frame?.contentDocument?.documentElement;
+    if (root) root.dataset.hsTheme = theme;
   }
 
   async goBack(): Promise<void> {

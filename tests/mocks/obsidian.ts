@@ -166,6 +166,27 @@ export class FileView extends ItemView {
     if (this.file === file) this.file = null;
     return Promise.resolve();
   }
+
+  getState(): Record<string, unknown> {
+    return this.file ? { file: this.file.path } : {};
+  }
+
+  setState(
+    state: Record<string, unknown>,
+    result: { history: boolean },
+  ): Promise<void> {
+    void result;
+    const path = state.file;
+    const app = this.app as {
+      vault?: { getAbstractFileByPath?: (path: string) => unknown };
+    };
+    const file =
+      typeof path === "string"
+        ? app.vault?.getAbstractFileByPath?.(path)
+        : null;
+    this.file = file instanceof TFile ? file : null;
+    return Promise.resolve();
+  }
 }
 
 export const registeredViews: {

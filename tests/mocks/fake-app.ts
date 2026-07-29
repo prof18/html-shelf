@@ -19,6 +19,7 @@ export interface FakeAppHarness {
   readCount: (path: string) => number;
   setContent: (path: string, content: string) => void;
   setMtime: (path: string, mtime: number) => void;
+  emitWorkspace: (event: string) => void;
 }
 
 export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
@@ -78,6 +79,7 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
 
   const leaves: WorkspaceLeaf[] = [];
   const revealedLeaves: WorkspaceLeaf[] = [];
+  const workspaceHandlers = new Map<string, Set<() => void>>();
   const appValue: { vault: typeof vault; workspace: object } = {
     vault,
     workspace: {},
@@ -105,6 +107,12 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
         return Object.prototype.isPrototypeOf.call(type.prototype, view);
       });
       return (leaf?.view as T | undefined) ?? null;
+    },
+    on: (event: string, handler: () => void) => {
+      const handlers = workspaceHandlers.get(event) ?? new Set<() => void>();
+      handlers.add(handler);
+      workspaceHandlers.set(event, handlers);
+      return { off: () => handlers.delete(handler) };
     },
   };
   appValue.workspace = workspace;
@@ -152,6 +160,9 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
       const record = records.get(path);
       if (!record) throw new Error(`Missing fake file: ${path}`);
       record.file.stat.mtime = mtime;
+    },
+    emitWorkspace: (event) => {
+      for (const handler of workspaceHandlers.get(event) ?? []) handler();
     },
   };
 }
