@@ -82,7 +82,7 @@ These have the same privacy implications as opening that HTML in a browser. Revi
 
 ## Limitations
 
-- Relative links to non-HTML files, such as an image wrapped in an `<a>` element, do not open in version 1.
+- Relative links to non-HTML files, such as an image wrapped in an `<a>` element, do not open in the initial release.
 - Relative paths are case-sensitive. A link whose casing differs from the vault file is reported as missing.
 - **Include .htm files** affects the shelf listing only. A `.htm` file opened directly still renders.
 - HTML Shelf does not export or rewrite source files.
