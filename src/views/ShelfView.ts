@@ -234,6 +234,14 @@ export class ShelfView extends ItemView {
     const menu = new Menu();
     menu.addItem((item) =>
       item
+        .setTitle("Copy path")
+        .setIcon("copy")
+        .onClick(() => {
+          void this.copyEntryPath(entry);
+        }),
+    );
+    menu.addItem((item) =>
+      item
         .setTitle("Delete")
         .setIcon("trash-2")
         .setWarning(true)
@@ -244,6 +252,15 @@ export class ShelfView extends ItemView {
         }),
     );
     return menu;
+  }
+
+  private async copyEntryPath(entry: ShelfEntry): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(entry.path);
+      new Notice(`Copied path: ${entry.path}`);
+    } catch {
+      new Notice(`Could not copy path: ${entry.path}`);
+    }
   }
 
   private async deleteEntry(entry: ShelfEntry): Promise<void> {

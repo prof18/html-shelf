@@ -114,7 +114,11 @@ describe("ShelfView rendering", () => {
 
     expect(openedMenus).toHaveLength(1);
     expect(openedMenus[0]?.position).toEqual({ x: 120, y: 240 });
-    expect(openedMenus[0]?.items[0]).toMatchObject({
+    expect(openedMenus[0]?.items.map(({ title }) => title)).toEqual([
+      "Copy path",
+      "Delete",
+    ]);
+    expect(openedMenus[0]?.items[1]).toMatchObject({
       title: "Delete",
       icon: "trash-2",
       warning: true,
@@ -126,7 +130,7 @@ describe("ShelfView rendering", () => {
     await Promise.resolve();
     expect(harness.leaves).toHaveLength(0);
 
-    openedMenus[0]?.items[0]?.click();
+    openedMenus[0]?.items[1]?.click();
     const modal = openedModals[0];
     expect(modal?.titleEl.textContent).toBe("Delete HTML file?");
     expect(modal?.contentEl.textContent).toContain("plans/long-page.html");
@@ -204,7 +208,7 @@ describe("ShelfView rendering", () => {
       }),
     );
     expect(openedMenus).toHaveLength(1);
-    openedMenus[0]?.items[0]?.click();
+    openedMenus[0]?.items[1]?.click();
     const modal = openedModals[0];
     modal?.contentEl.querySelectorAll<HTMLButtonElement>("button")[0]?.click();
 
@@ -212,6 +216,44 @@ describe("ShelfView rendering", () => {
     expect(openedMenus[0]?.shownAtMouseEvent).toBe(true);
     expect(harness.trashedPaths).toEqual([]);
     expect(harness.file("page.html")).not.toBeNull();
+  });
+
+  it("copies the vault-relative path from the entry menu and reports failures", async () => {
+    const harness = createFakeApp([
+      { path: "plans/alpha.html", content: "<title>Alpha</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    const entry = view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")!;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    entry.dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+    );
+    expect(openedMenus[0]?.items[0]).toMatchObject({
+      title: "Copy path",
+      icon: "copy",
+    });
+    openedMenus[0]?.items[0]?.click();
+    await vi.waitFor(() =>
+      expect(noticeMessages).toContain("Copied path: plans/alpha.html"),
+    );
+    expect(writeText).toHaveBeenCalledWith("plans/alpha.html");
+
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    openedMenus[0]?.items[0]?.click();
+    await vi.waitFor(() =>
+      expect(noticeMessages).toContain("Could not copy path: plans/alpha.html"),
+    );
   });
 
   it("renders grouped entries as semantic buttons and opens a file", async () => {

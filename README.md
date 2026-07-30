@@ -47,7 +47,7 @@ the library folder is not listed under **Excluded folders** in the Sync settings
 - Select the library icon in the ribbon, or run **HTML Shelf: Open shelf** from the command palette.
 - Type in **Filter pages** to search titles, paths, and sections.
 - Select a page to render it inside Obsidian. Relative links to other HTML pages remain inside the plugin; the page bar provides Back and Shelf controls.
-- Long-press a page on mobile, or right-click it on desktop, to delete it after confirmation. Obsidian's deleted-files preference determines how the file is removed.
+- Long-press a page on mobile, or right-click it on desktop, to open its menu. **Copy path** puts the vault-relative path on the clipboard, and **Delete** removes the file after confirmation. Obsidian's deleted-files preference determines how the file is removed.
 - Open **Settings → HTML Shelf** to include specific folders, exclude subtrees, or hide `.htm` files from the shelf. Changes apply immediately.
 
 `index.html` and `index.htm` files are treated as navigation targets and are not listed on the shelf.
