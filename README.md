@@ -10,11 +10,10 @@ HTML Shelf discovers and reads the HTML files in your vault on mobile and deskto
 
 ### Shelf on mobile
 
-<img src="docs/images/shelf-android.png" alt="HTML Shelf homepage listing synthetic fixture pages on mobile" width="280">
-
-### Rendered page on mobile
-
-<img src="docs/images/page-android.png" alt="A synthetic fixture page rendered inside Obsidian on mobile" width="280">
+<p>
+  <img src="docs/images/shelf-android.png" alt="HTML Shelf homepage listing synthetic fixture pages on mobile" width="280">
+  <img src="docs/images/page-android.png" alt="A synthetic fixture page rendered inside Obsidian on mobile" width="280">
+</p>
 
 The screenshots use only the synthetic development vault included in this repository.
 
