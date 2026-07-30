@@ -51,7 +51,9 @@ button.hs-pagebar-button {
 .hs-shelf {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   height: 100%;
+  overflow: hidden;
   background: var(--background-primary);
   color: var(--text-normal);
 }
@@ -76,9 +78,16 @@ button.hs-pagebar-button {
 
 .hs-sections {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding-bottom: 24px;
+}
+
+.hs-section {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hs-shelf.hs-mobile .hs-sections {
@@ -100,14 +109,24 @@ button.hs-pagebar-button {
   font-weight: var(--font-semibold);
 }
 
+.hs-section-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .hs-section-count {
+  flex: none;
+  margin-left: 12px;
   color: var(--interactive-accent);
   font-variant-numeric: tabular-nums;
 }
 
 button.hs-entry {
   display: block;
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   height: auto;
   min-height: 44px;
   padding: 10px 18px;
@@ -117,6 +136,7 @@ button.hs-entry {
   background: transparent;
   color: var(--text-normal);
   text-align: left;
+  white-space: normal;
   box-shadow: none;
 }
 
@@ -128,6 +148,9 @@ button.hs-entry:focus-visible {
 .hs-entry-title,
 .hs-entry-path {
   display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .hs-entry-title {
@@ -136,11 +159,8 @@ button.hs-entry:focus-visible {
 
 .hs-entry-path {
   margin-top: 2px;
-  overflow: hidden;
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .hs-scanning,
@@ -148,4 +168,8 @@ button.hs-entry:focus-visible {
 .hs-no-results {
   padding: 28px 18px;
   color: var(--text-muted);
+}
+
+.hs-delete-message {
+  overflow-wrap: anywhere;
 }

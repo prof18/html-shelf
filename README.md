@@ -4,9 +4,17 @@ HTML Shelf discovers and reads the HTML files in your vault on mobile and deskto
 
 ## Screenshots
 
-| Shelf on desktop                                                                        | Rendered page on Android                                                                      |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| ![HTML Shelf listing synthetic fixture pages on desktop](docs/images/shelf-desktop.png) | ![A synthetic fixture page rendered inside Obsidian on Android](docs/images/page-android.png) |
+### Shelf on desktop
+
+![HTML Shelf listing synthetic fixture pages on desktop](docs/images/shelf-desktop.png)
+
+### Shelf on Android
+
+![HTML Shelf homepage listing synthetic fixture pages on Android](docs/images/shelf-android.png)
+
+### Rendered page on Android
+
+![A synthetic fixture page rendered inside Obsidian on Android](docs/images/page-android.png)
 
 The screenshots use only the synthetic development vault included in this repository.
 
@@ -24,11 +32,23 @@ The screenshots use only the synthetic development vault included in this reposi
 2. Put all three files in `<vault>/.obsidian/plugins/html-shelf/`.
 3. Reload Obsidian, then enable **HTML Shelf** under **Settings → Community plugins**.
 
+### Obsidian Sync
+
+Obsidian Sync does not sync `.html` and `.htm` files by default. If your HTML
+library is stored on another device, enable **Settings → Sync → Selective
+sync → Sync all other types** on both the source device and every device that
+should receive the files. This setting is device-specific.
+
+Restart Obsidian after changing the setting; on mobile, force-quit the app and
+reopen it. Wait for Sync to finish before opening HTML Shelf. Also confirm that
+the library folder is not listed under **Excluded folders** in the Sync settings.
+
 ## Usage
 
 - Select the library icon in the ribbon, or run **HTML Shelf: Open shelf** from the command palette.
 - Type in **Filter pages** to search titles, paths, and sections.
 - Select a page to render it inside Obsidian. Relative links to other HTML pages remain inside the plugin; the page bar provides Back and Shelf controls.
+- Long-press a page on mobile, or right-click it on desktop, to delete it after confirmation. Obsidian's deleted-files preference determines how the file is removed.
 - Open **Settings → HTML Shelf** to include specific folders, exclude subtrees, or hide `.htm` files from the shelf. Changes apply immediately.
 
 `index.html` and `index.htm` files are treated as navigation targets and are not listed on the shelf.

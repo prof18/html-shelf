@@ -22,6 +22,7 @@ export interface FakeAppHarness {
   modifyFile: (path: string, content: string) => void;
   renameFile: (oldPath: string, newPath: string) => void;
   readCount: (path: string) => number;
+  trashedPaths: string[];
   setContent: (path: string, content: string) => void;
   setMtime: (path: string, mtime: number) => void;
   emitWorkspace: (event: string) => void;
@@ -104,9 +105,26 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
   const leaves: WorkspaceLeaf[] = [];
   const revealedLeaves: WorkspaceLeaf[] = [];
   const workspaceHandlers = new Map<string, Set<() => void>>();
-  const appValue: { vault: typeof vault; workspace: object } = {
+  const trashedPaths: string[] = [];
+  const fileManager = {
+    trashFile: (file: MockTFile) => {
+      const record = records.get(file.path);
+      if (!record)
+        return Promise.reject(new Error(`Missing fake file: ${file.path}`));
+      records.delete(file.path);
+      trashedPaths.push(file.path);
+      emit("delete", file);
+      return Promise.resolve();
+    },
+  };
+  const appValue: {
+    vault: typeof vault;
+    workspace: object;
+    fileManager: typeof fileManager;
+  } = {
     vault,
     workspace: {},
+    fileManager,
   };
   const workspace = {
     getLeavesOfType: (type: string) =>
@@ -144,6 +162,7 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
     app: appValue as unknown as App,
     leaves,
     revealedLeaves,
+    trashedPaths,
     file: (path) => records.get(path)?.file ?? null,
     createFile: (input) => {
       const record = makeRecord(input);

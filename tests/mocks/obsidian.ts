@@ -12,6 +12,8 @@ export class TFolder {
 }
 
 export const noticeMessages: string[] = [];
+export const openedMenus: Menu[] = [];
+export const openedModals: Modal[] = [];
 
 export class Notice {
   constructor(public message: string) {
@@ -107,6 +109,11 @@ Object.defineProperties(HTMLElement.prototype, {
       return element;
     },
   },
+  setText: {
+    value(this: HTMLElement, text: string): void {
+      this.textContent = text;
+    },
+  },
 });
 
 const hasOff = (value: unknown): value is { off: () => void } =>
@@ -137,6 +144,87 @@ export class Component {
   unload(): void {
     for (const callback of this.cleanup.splice(0)) callback();
   }
+}
+
+export class MenuItem {
+  title = "";
+  icon: string | null = null;
+  warning = false;
+  clickCallback: (() => unknown) | null = null;
+
+  setTitle(title: string): this {
+    this.title = title;
+    return this;
+  }
+
+  setIcon(icon: string | null): this {
+    this.icon = icon;
+    return this;
+  }
+
+  setWarning(warning: boolean): this {
+    this.warning = warning;
+    return this;
+  }
+
+  onClick(callback: () => unknown): this {
+    this.clickCallback = callback;
+    return this;
+  }
+
+  click(): unknown {
+    return this.clickCallback?.();
+  }
+}
+
+export class Menu extends Component {
+  readonly items: MenuItem[] = [];
+  position: { x: number; y: number } | null = null;
+  shownAtMouseEvent = false;
+
+  addItem(callback: (item: MenuItem) => unknown): this {
+    const item = new MenuItem();
+    callback(item);
+    this.items.push(item);
+    return this;
+  }
+
+  showAtPosition(position: { x: number; y: number }): this {
+    this.position = position;
+    openedMenus.push(this);
+    return this;
+  }
+
+  showAtMouseEvent(event: MouseEvent): this {
+    this.position = { x: event.clientX, y: event.clientY };
+    this.shownAtMouseEvent = true;
+    openedMenus.push(this);
+    return this;
+  }
+}
+
+export class Modal {
+  readonly containerEl = document.createElement("div");
+  readonly modalEl = document.createElement("div");
+  readonly titleEl = document.createElement("div");
+  readonly contentEl = document.createElement("div");
+
+  constructor(public app: unknown) {
+    this.modalEl.append(this.titleEl, this.contentEl);
+    this.containerEl.append(this.modalEl);
+  }
+
+  open(): void {
+    openedModals.push(this);
+    this.onOpen();
+  }
+
+  close(): void {
+    this.onClose();
+  }
+
+  onOpen(): void {}
+  onClose(): void {}
 }
 
 export class WorkspaceLeaf {

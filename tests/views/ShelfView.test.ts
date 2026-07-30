@@ -13,6 +13,8 @@ import {
 } from "../mocks/fake-app";
 import {
   noticeMessages,
+  openedMenus,
+  openedModals,
   registeredCommands,
   registeredExtensions,
   registeredViews,
@@ -20,6 +22,17 @@ import {
   setRegisterExtensionsError,
   WorkspaceLeaf as MockWorkspaceLeaf,
 } from "../mocks/obsidian";
+
+const pointerEvent = (
+  type: string,
+  properties: Record<string, string | number>,
+): Event => {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  for (const [name, value] of Object.entries(properties)) {
+    Object.defineProperty(event, name, { value });
+  }
+  return event;
+};
 
 const manifest: PluginManifest = {
   id: "html-shelf",
@@ -40,13 +53,17 @@ describe("ShelfView metadata", () => {
       () => DEFAULT_SETTINGS,
     );
     expect(view.getViewType()).toBe(VIEW_TYPE_SHELF);
-    expect(view.getDisplayText()).toBe("HTML shelf");
+    expect(view.getDisplayText()).toBe("HTML Shelf");
     expect(view.getIcon()).toBe("library");
   });
 });
 
 describe("ShelfView rendering", () => {
-  beforeEach(() => noticeMessages.splice(0));
+  beforeEach(() => {
+    noticeMessages.splice(0);
+    openedMenus.splice(0);
+    openedModals.splice(0);
+  });
   afterEach(() => {
     Platform.isMobile = false;
     vi.useRealTimers();
@@ -67,6 +84,134 @@ describe("ShelfView rendering", () => {
     expect(view.contentEl.querySelector(".hs-shelf")?.classList).toContain(
       "hs-mobile",
     );
+  });
+
+  it("opens a delete menu on mobile long press and moves the confirmed file to trash", async () => {
+    vi.useFakeTimers();
+    Platform.isMobile = true;
+    const harness = createFakeApp([
+      { path: "plans/long-page.html", content: "<title>Long page</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    const entry = view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")!;
+
+    entry.dispatchEvent(
+      pointerEvent("pointerdown", {
+        pointerType: "touch",
+        clientX: 120,
+        clientY: 240,
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(499);
+    expect(openedMenus).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(openedMenus).toHaveLength(1);
+    expect(openedMenus[0]?.position).toEqual({ x: 120, y: 240 });
+    expect(openedMenus[0]?.items[0]).toMatchObject({
+      title: "Delete",
+      icon: "trash-2",
+      warning: true,
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    entry.dispatchEvent(pointerEvent("pointerup", {}));
+    entry.click();
+    await Promise.resolve();
+    expect(harness.leaves).toHaveLength(0);
+
+    openedMenus[0]?.items[0]?.click();
+    const modal = openedModals[0];
+    expect(modal?.titleEl.textContent).toBe("Delete HTML file?");
+    expect(modal?.contentEl.textContent).toContain("plans/long-page.html");
+    modal?.contentEl
+      .querySelector<HTMLButtonElement>("button.mod-warning")
+      ?.click();
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(harness.trashedPaths).toEqual(["plans/long-page.html"]);
+    expect(noticeMessages).toContain("Deleted: plans/long-page.html");
+    expect(view.contentEl.querySelector(".hs-entry")).toBeNull();
+  });
+
+  it("cancels a pending mobile long press when the finger moves", async () => {
+    vi.useFakeTimers();
+    Platform.isMobile = true;
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    const entry = view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")!;
+
+    entry.dispatchEvent(
+      pointerEvent("pointerdown", {
+        pointerType: "touch",
+        clientX: 40,
+        clientY: 80,
+      }),
+    );
+    entry.dispatchEvent(
+      pointerEvent("pointermove", {
+        clientX: 51,
+        clientY: 80,
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(openedMenus).toHaveLength(0);
+  });
+
+  it("opens the same menu on desktop right-click and allows cancellation", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const index = new ShelfIndex(harness.app, () => DEFAULT_SETTINGS);
+    const view = new ShelfView(
+      createFakeLeaf(harness.app),
+      index,
+      () => DEFAULT_SETTINGS,
+    );
+    await view.onOpen();
+    const entry = view.contentEl.querySelector<HTMLButtonElement>(".hs-entry")!;
+
+    entry.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 2,
+        clientX: 25,
+        clientY: 50,
+      }),
+    );
+    entry.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 25,
+        clientY: 50,
+      }),
+    );
+    expect(openedMenus).toHaveLength(1);
+    openedMenus[0]?.items[0]?.click();
+    const modal = openedModals[0];
+    modal?.contentEl.querySelectorAll<HTMLButtonElement>("button")[0]?.click();
+
+    expect(openedMenus[0]?.position).toEqual({ x: 25, y: 50 });
+    expect(openedMenus[0]?.shownAtMouseEvent).toBe(true);
+    expect(harness.trashedPaths).toEqual([]);
+    expect(harness.file("page.html")).not.toBeNull();
   });
 
   it("renders grouped entries as semantic buttons and opens a file", async () => {

@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2026-07-30
+
+### Added
+
+- Delete HTML files from the shelf after confirmation: long-press on mobile or right-click on desktop. The removal follows Obsidian's deleted-files preference.
+- An Android shelf screenshot alongside the existing desktop and rendered-page examples.
+
+### Fixed
+
+- Wrap long section names, page titles, and paths instead of allowing them to overflow narrow layouts.
+- Use the product name “HTML Shelf” consistently in the shelf heading and tab.
+
+### Changed
+
+- Document the Obsidian Sync setting required to sync HTML files between devices.
+- Present README screenshots as stacked sections so they embed reliably on small screens and third-party platforms.
+
 ## [0.0.2] - 2026-07-29
 
 ### Added
@@ -39,4 +56,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - HTML sanitization removes scripts, handlers, embedded executable content, unsafe URLs, remote stylesheets, and inline CSS imports before rendering.
 
 [0.0.2]: https://github.com/prof18/html-shelf/compare/0.0.1...0.0.2
+[0.0.3]: https://github.com/prof18/html-shelf/compare/0.0.2...0.0.3
 [0.0.1]: https://github.com/prof18/html-shelf/releases/tag/0.0.1

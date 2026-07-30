@@ -1,6 +1,7 @@
 import {
   FileView,
   ItemView,
+  Menu,
   Notice,
   Platform,
   TFile,
@@ -9,8 +10,14 @@ import {
 import type { ShelfEntry, ShelfSection, ShelfSettings } from "../core/model";
 import { isHtmlPath } from "../core/scan";
 import { filterSections } from "../core/search";
+import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
 import type { ShelfIndex } from "./ShelfIndex";
 import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./view-types";
+
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE = 10;
+const SUPPRESS_CLICK_MS = 750;
+const DESKTOP_MENU_DEDUPE_MS = 250;
 
 export class ShelfView extends ItemView {
   private sections: ShelfSection[] = [];
@@ -18,6 +25,11 @@ export class ShelfView extends ItemView {
   private refreshTimer: number | null = null;
   private searchElement: HTMLInputElement | null = null;
   private sectionsElement: HTMLElement | null = null;
+  private longPressTimer: number | null = null;
+  private longPressStart: { x: number; y: number } | null = null;
+  private longPressTriggered = false;
+  private suppressClickUntil = 0;
+  private lastDesktopMenuAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -36,7 +48,7 @@ export class ShelfView extends ItemView {
     const shelf = this.contentEl.createDiv({ cls: "hs-shelf" });
     shelf.classList.toggle("hs-mobile", Platform.isMobile);
     const toolbar = shelf.createDiv({ cls: "hs-toolbar" });
-    toolbar.createEl("h1", { cls: "hs-title", text: "HTML shelf" });
+    toolbar.createEl("h1", { cls: "hs-title", text: "HTML Shelf" });
     const search = toolbar.createEl("input", {
       cls: "hs-search",
       attr: {
@@ -68,6 +80,7 @@ export class ShelfView extends ItemView {
     this.register(() => {
       if (this.searchTimer !== null) window.clearTimeout(this.searchTimer);
       if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
+      this.clearLongPress();
     });
     this.register(this.subscribeToSettings(() => this.scheduleRefresh()));
     this.registerVaultEvents();
@@ -78,7 +91,7 @@ export class ShelfView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "HTML shelf";
+    return "HTML Shelf";
   }
 
   getIcon(): string {
@@ -90,6 +103,7 @@ export class ShelfView extends ItemView {
     sections: ShelfSection[],
     filtered: boolean,
   ): void {
+    this.clearLongPress();
     sectionsElement.empty();
     if (sections.length === 0) {
       if (filtered) {
@@ -112,7 +126,7 @@ export class ShelfView extends ItemView {
     for (const section of sections) {
       const sectionElement = sectionsElement.createDiv({ cls: "hs-section" });
       const header = sectionElement.createDiv({ cls: "hs-section-header" });
-      header.createSpan({ text: section.name });
+      header.createSpan({ cls: "hs-section-name", text: section.name });
       header.createSpan({
         cls: "hs-section-count",
         text: String(section.entries.length),
@@ -124,10 +138,126 @@ export class ShelfView extends ItemView {
         });
         button.createSpan({ cls: "hs-entry-title", text: entry.title });
         button.createSpan({ cls: "hs-entry-path", text: entry.path });
-        this.registerDomEvent(button, "click", () => {
+        this.registerDomEvent(button, "click", (event) => {
+          if (Date.now() < this.suppressClickUntil) {
+            event.preventDefault();
+            this.suppressClickUntil = 0;
+            return;
+          }
           void this.openEntry(entry);
         });
+        this.registerEntryMenu(button, entry);
       }
+    }
+  }
+
+  private registerEntryMenu(
+    button: HTMLButtonElement,
+    entry: ShelfEntry,
+  ): void {
+    this.registerDomEvent(button, "contextmenu", (event) => {
+      event.preventDefault();
+      if (
+        !Platform.isMobile &&
+        Date.now() - this.lastDesktopMenuAt > DESKTOP_MENU_DEDUPE_MS
+      ) {
+        this.lastDesktopMenuAt = Date.now();
+        this.createEntryMenu(entry).showAtMouseEvent(event);
+      }
+    });
+
+    this.registerDomEvent(button, "mousedown", (event) => {
+      if (!Platform.isMobile && event.button === 2) {
+        event.preventDefault();
+        this.lastDesktopMenuAt = Date.now();
+        this.createEntryMenu(entry).showAtMouseEvent(event);
+      }
+    });
+
+    this.registerDomEvent(button, "pointerdown", (event) => {
+      if (!Platform.isMobile) return;
+
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") {
+        return;
+      }
+
+      this.clearLongPress();
+      this.longPressTriggered = false;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      this.longPressStart = { x: startX, y: startY };
+      this.longPressTimer = window.setTimeout(() => {
+        this.longPressTimer = null;
+        this.longPressStart = null;
+        this.longPressTriggered = true;
+        this.suppressClickUntil = Number.POSITIVE_INFINITY;
+        this.showEntryMenu(entry, startX, startY);
+      }, LONG_PRESS_MS);
+    });
+
+    this.registerDomEvent(button, "pointermove", (event) => {
+      if (this.longPressTimer === null || this.longPressStart === null) return;
+      if (
+        Math.abs(event.clientX - this.longPressStart.x) >
+          LONG_PRESS_MOVE_TOLERANCE ||
+        Math.abs(event.clientY - this.longPressStart.y) >
+          LONG_PRESS_MOVE_TOLERANCE
+      ) {
+        this.clearLongPress();
+      }
+    });
+    this.registerDomEvent(button, "pointerup", () => this.endLongPress());
+    this.registerDomEvent(button, "pointercancel", () => this.endLongPress());
+  }
+
+  private endLongPress(): void {
+    if (this.longPressTriggered) {
+      this.suppressClickUntil = Date.now() + SUPPRESS_CLICK_MS;
+    }
+    this.clearLongPress();
+  }
+
+  private clearLongPress(): void {
+    if (this.longPressTimer !== null) {
+      window.clearTimeout(this.longPressTimer);
+    }
+    this.longPressTimer = null;
+    this.longPressStart = null;
+    this.longPressTriggered = false;
+  }
+
+  private showEntryMenu(entry: ShelfEntry, x: number, y: number): void {
+    this.createEntryMenu(entry).showAtPosition({ x, y });
+  }
+
+  private createEntryMenu(entry: ShelfEntry): Menu {
+    const menu = new Menu();
+    menu.addItem((item) =>
+      item
+        .setTitle("Delete")
+        .setIcon("trash-2")
+        .setWarning(true)
+        .onClick(() => {
+          new DeleteConfirmationModal(this.app, entry.path, () => {
+            void this.deleteEntry(entry);
+          }).open();
+        }),
+    );
+    return menu;
+  }
+
+  private async deleteEntry(entry: ShelfEntry): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(entry.path);
+    if (!(file instanceof TFile)) {
+      new Notice(`File no longer exists: ${entry.path}`);
+      return;
+    }
+
+    try {
+      await this.app.fileManager.trashFile(file);
+      new Notice(`Deleted: ${entry.path}`);
+    } catch {
+      new Notice(`Could not delete: ${entry.path}`);
     }
   }
 

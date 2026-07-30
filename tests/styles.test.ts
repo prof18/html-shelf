@@ -30,6 +30,52 @@ describe("shelf styles", () => {
     expect(styles.paddingBottom).toBe("10px");
   });
 
+  it("wraps long shelf text without creating horizontal overflow", () => {
+    document.head.innerHTML = `
+      <style>button { box-sizing: content-box; white-space: nowrap; }</style>
+      <style>${pluginStyles}</style>
+    `;
+    document.body.innerHTML = `
+      <div class="hs-shelf">
+        <div class="hs-sections">
+          <div class="hs-section-header">
+            <span class="hs-section-name">A very long section name that must wrap</span>
+            <span class="hs-section-count">15</span>
+          </div>
+          <button class="hs-entry">
+            <span class="hs-entry-title">A very long page title that must wrap</span>
+            <span class="hs-entry-path">folder/a-very-long-unbroken-file-name.html</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    const sections = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-sections")!,
+    );
+    const sectionName = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-section-name")!,
+    );
+    const entry = getComputedStyle(
+      document.querySelector<HTMLButtonElement>(".hs-entry")!,
+    );
+    const title = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-entry-title")!,
+    );
+    const path = getComputedStyle(
+      document.querySelector<HTMLElement>(".hs-entry-path")!,
+    );
+
+    expect(sections.overflowX).toBe("hidden");
+    expect(sectionName.overflowWrap).toBe("anywhere");
+    expect(entry.boxSizing).toBe("border-box");
+    expect(entry.maxWidth).toBe("100%");
+    expect(entry.whiteSpace).toBe("normal");
+    expect(title.overflowWrap).toBe("anywhere");
+    expect(path.overflowWrap).toBe("anywhere");
+    expect(path.whiteSpace).toBe("normal");
+  });
+
   it("keeps the final shelf entry above mobile floating navigation", () => {
     document.head.innerHTML = `<style>${pluginStyles}</style>`;
     document.body.innerHTML = `
