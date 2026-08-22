@@ -1,7 +1,6 @@
 import {
   FileView,
   ItemView,
-  Menu,
   Notice,
   Platform,
   TFile,
@@ -10,7 +9,7 @@ import {
 import type { ShelfEntry, ShelfSection, ShelfSettings } from "../core/model";
 import { isHtmlPath } from "../core/scan";
 import { filterSections } from "../core/search";
-import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
+import { createFileActionsMenu } from "./FileActionsMenu";
 import type { ShelfIndex } from "./ShelfIndex";
 import { VIEW_TYPE_HTML, VIEW_TYPE_SHELF } from "./view-types";
 
@@ -230,52 +229,8 @@ export class ShelfView extends ItemView {
     this.createEntryMenu(entry).showAtPosition({ x, y });
   }
 
-  private createEntryMenu(entry: ShelfEntry): Menu {
-    const menu = new Menu();
-    menu.addItem((item) =>
-      item
-        .setTitle("Copy path")
-        .setIcon("copy")
-        .onClick(() => {
-          void this.copyEntryPath(entry);
-        }),
-    );
-    menu.addItem((item) =>
-      item
-        .setTitle("Delete")
-        .setIcon("trash-2")
-        .setWarning(true)
-        .onClick(() => {
-          new DeleteConfirmationModal(this.app, entry.path, () => {
-            void this.deleteEntry(entry);
-          }).open();
-        }),
-    );
-    return menu;
-  }
-
-  private async copyEntryPath(entry: ShelfEntry): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(entry.path);
-      new Notice(`Copied path: ${entry.path}`);
-    } catch {
-      new Notice(`Could not copy path: ${entry.path}`);
-    }
-  }
-
-  private async deleteEntry(entry: ShelfEntry): Promise<void> {
-    const file = this.app.vault.getAbstractFileByPath(entry.path);
-    if (!(file instanceof TFile)) {
-      new Notice(`File no longer exists: ${entry.path}`);
-      return;
-    }
-
-    try {
-      await this.app.fileManager.trashFile(file);
-      new Notice(`Deleted: ${entry.path}`);
-    } catch {
-      new Notice(`Could not delete: ${entry.path}`);
-    }
+  private createEntryMenu(entry: ShelfEntry) {
+    return createFileActionsMenu(this.app, entry.path);
   }
 
   private async openEntry(entry: ShelfEntry): Promise<void> {

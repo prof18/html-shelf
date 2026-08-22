@@ -6,6 +6,8 @@ import { VIEW_TYPE_HTML } from "../../src/views/view-types";
 import { createFakeApp, createFakeLeaf } from "../mocks/fake-app";
 import {
   noticeMessages,
+  openedMenus,
+  openedModals,
   WorkspaceLeaf as MockWorkspaceLeaf,
 } from "../mocks/obsidian";
 
@@ -29,6 +31,8 @@ describe("HtmlView", () => {
     document.body.classList.remove("theme-dark");
     document.body.replaceChildren();
     noticeMessages.splice(0);
+    openedMenus.splice(0);
+    openedModals.splice(0);
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -362,6 +366,11 @@ describe("HtmlView", () => {
         )?.disabled,
       ).toBe(false),
     );
+    expect(
+      view.contentEl.querySelector<HTMLButtonElement>(
+        '[aria-label="Go back in page history"]',
+      )?.classList,
+    ).not.toContain("hs-pagebar-button-hidden");
   });
 
   it("removes stale document listeners when rewired and unloaded", async () => {
@@ -548,9 +557,46 @@ describe("HtmlView", () => {
       '[aria-label="Open HTML shelf"]',
     );
     expect(bar).not.toBeNull();
-    expect(back?.disabled).toBe(true);
+    expect(back?.classList).toContain("hs-pagebar-button-hidden");
     shelf?.click();
     expect(activateShelf).toHaveBeenCalledOnce();
+  });
+
+  it("offers the same file actions while reading a plan", async () => {
+    const harness = createFakeApp([
+      { path: "plans/page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+
+    await view.onLoadFile(harness.file("plans/page.html")! as unknown as TFile);
+
+    const actions = view.contentEl.querySelector<HTMLButtonElement>(
+      '[aria-label="Plan actions"]',
+    );
+    actions?.click();
+    expect(openedMenus[0]?.items.map(({ title }) => title)).toEqual([
+      "Copy path",
+      "Delete",
+    ]);
+
+    openedMenus[0]?.items[0]?.click();
+    await vi.waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("plans/page.html"),
+    );
+    expect(noticeMessages).toContain("Copied path: plans/page.html");
+
+    actions?.click();
+    openedMenus[1]?.items[1]?.click();
+    openedModals[0]?.contentEl
+      .querySelector<HTMLButtonElement>("button.mod-warning")
+      ?.click();
+    await vi.waitFor(() =>
+      expect(harness.trashedPaths).toEqual(["plans/page.html"]),
+    );
+    expect(noticeMessages).toContain("Deleted: plans/page.html");
   });
 
   it("reacts to css-change without rereading or replacing srcdoc", async () => {

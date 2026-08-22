@@ -12,6 +12,7 @@ import { loadInlineImageUrls } from "../core/assets";
 import { deriveTitle } from "../core/titles";
 import { prepareHtml } from "../core/sanitize";
 import { VIEW_TYPE_HTML } from "./view-types";
+import { createFileActionsMenu } from "./FileActionsMenu";
 import {
   createLinkClickHandler,
   routeLink,
@@ -362,10 +363,28 @@ export class HtmlView extends FileView {
     });
     setIcon(shelf, "library");
     shelf.addEventListener("click", () => void this.plugin.activateShelf());
+
+    const actions = bar.createEl("button", {
+      cls: "hs-pagebar-button clickable-icon",
+      attr: {
+        type: "button",
+        "aria-label": "Plan actions",
+        title: "Plan actions",
+      },
+    });
+    setIcon(actions, "ellipsis-vertical");
+    actions.addEventListener("click", (event) => {
+      const file = this.file;
+      if (!file) return;
+      createFileActionsMenu(this.app, file.path).showAtMouseEvent(event);
+    });
   }
 
   private updateBackButton(): void {
-    if (this.backButton) this.backButton.disabled = !this.canGoBack();
+    if (!this.backButton) return;
+    const isAvailable = this.canGoBack();
+    this.backButton.classList.toggle("hs-pagebar-button-hidden", !isAvailable);
+    this.backButton.disabled = !isAvailable;
   }
 
   private renderMessage(message: string): void {

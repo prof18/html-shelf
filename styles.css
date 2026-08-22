@@ -48,6 +48,10 @@ button.hs-pagebar-button {
   box-shadow: none;
 }
 
+button.hs-pagebar-button.hs-pagebar-button-hidden {
+  display: none !important;
+}
+
 .hs-shelf {
   display: flex;
   flex-direction: column;
