@@ -290,6 +290,27 @@ describe("HtmlView", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("ignores a late unload for a file that is no longer active", async () => {
+    const harness = createFakeApp([
+      { path: "old.html", content: "<title>Old</title>" },
+      { path: "new.html", content: "<title>New</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const oldFile = harness.file("old.html")! as unknown as TFile;
+    const newFile = harness.file("new.html")! as unknown as TFile;
+    await view.onLoadFile(oldFile);
+    await view.onLoadFile(newFile);
+    const newFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+
+    await view.onUnloadFile(oldFile);
+
+    expect(view.file).toBe(newFile);
+    expect(view.contentEl.querySelector(".hs-frame")).toBe(newFrame);
+    expect(view.getDisplayText()).toBe("New");
+  });
+
   it("renders a read error instead of a blank iframe", async () => {
     const harness = createFakeApp([
       { path: "missing.html", content: "<title>Missing</title>" },
@@ -562,7 +583,7 @@ describe("HtmlView", () => {
     expect(activateShelf).toHaveBeenCalledOnce();
   });
 
-  it("offers the same file actions while reading a plan", async () => {
+  it("offers reload and file actions while reading a plan", async () => {
     const harness = createFakeApp([
       { path: "plans/page.html", content: "<title>Page</title>" },
     ]);
@@ -574,22 +595,23 @@ describe("HtmlView", () => {
     await view.onLoadFile(harness.file("plans/page.html")! as unknown as TFile);
 
     const actions = view.contentEl.querySelector<HTMLButtonElement>(
-      '[aria-label="Plan actions"]',
+      '[aria-label="Page actions"]',
     );
     actions?.click();
     expect(openedMenus[0]?.items.map(({ title }) => title)).toEqual([
+      "Reload",
       "Copy path",
       "Delete",
     ]);
 
-    openedMenus[0]?.items[0]?.click();
+    openedMenus[0]?.items[1]?.click();
     await vi.waitFor(() =>
       expect(writeText).toHaveBeenCalledWith("plans/page.html"),
     );
     expect(noticeMessages).toContain("Copied path: plans/page.html");
 
     actions?.click();
-    openedMenus[1]?.items[1]?.click();
+    openedMenus[1]?.items[2]?.click();
     openedModals[0]?.contentEl
       .querySelector<HTMLButtonElement>("button.mod-warning")
       ?.click();
@@ -597,6 +619,197 @@ describe("HtmlView", () => {
       expect(harness.trashedPaths).toEqual(["plans/page.html"]),
     );
     expect(noticeMessages).toContain("Deleted: plans/page.html");
+  });
+
+  it("reloads changed HTML from disk and preserves scroll and history", async () => {
+    const harness = createFakeApp([
+      { path: "plans/page.html", content: "<title>Before</title><p>Old</p>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    document.body.append(view.containerEl);
+    const file = harness.file("plans/page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    view.history.push({ path: "plans/previous.html", scrollY: 25 });
+    const firstFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    Object.defineProperty(firstFrame.contentWindow, "scrollY", {
+      value: 132,
+      configurable: true,
+    });
+    harness.setContent(
+      "plans/page.html",
+      "<title>After</title><p>Fresh content</p>",
+    );
+
+    view.contentEl
+      .querySelector<HTMLButtonElement>('[aria-label="Page actions"]')
+      ?.click();
+    await openedMenus[0]?.items[0]?.click();
+
+    const reloadedFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    const scrollTo = vi.fn();
+    Object.defineProperty(reloadedFrame.contentWindow, "scrollTo", {
+      value: scrollTo,
+      configurable: true,
+    });
+    markFramePrepared(reloadedFrame);
+    reloadedFrame.dispatchEvent(new Event("load"));
+
+    expect(reloadedFrame.srcdoc).toContain("Fresh content");
+    expect(view.getDisplayText()).toBe("After");
+    expect(view.history).toEqual([
+      { path: "plans/previous.html", scrollY: 25 },
+    ]);
+    expect(scrollTo).toHaveBeenCalledWith(0, 132);
+    expect(harness.readCount(file.path)).toBe(2);
+  });
+
+  it("keeps the current page visible when reload fails", async () => {
+    const harness = createFakeApp([
+      { path: "plans/page.html", content: "<title>Page</title><p>Content</p>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const file = harness.file("plans/page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    const originalFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    harness.deleteFile(file.path);
+
+    await view.reload();
+
+    expect(view.contentEl.querySelector(".hs-frame")).toBe(originalFrame);
+    expect(noticeMessages).toContain("Could not reload: plans/page.html");
+  });
+
+  it("ignores an older reload that finishes after a newer one", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Initial</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const file = harness.file("page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    let finishFirstRead: ((content: string) => void) | undefined;
+    const firstRead = new Promise<string>((resolve) => {
+      finishFirstRead = resolve;
+    });
+    vi.spyOn(harness.app.vault, "read")
+      .mockReturnValueOnce(firstRead)
+      .mockResolvedValueOnce("<title>Newest</title><p>New content</p>");
+
+    const olderReload = view.reload();
+    const newerReload = view.reload();
+    await newerReload;
+    finishFirstRead?.("<title>Stale</title><p>Old content</p>");
+    await olderReload;
+
+    const frame = view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    expect(frame.srcdoc).toContain("New content");
+    expect(frame.srcdoc).not.toContain("Old content");
+    expect(view.getDisplayText()).toBe("Newest");
+  });
+
+  it("does not carry reload scroll into a page opened during iOS image loading", async () => {
+    Platform.isMobile = true;
+    Platform.isIosApp = true;
+    const harness = createFakeApp([
+      { path: "old.html", content: "<title>Old</title>" },
+      { path: "image.png", content: "image bytes" },
+      { path: "new.html", content: "<title>New</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const oldFile = harness.file("old.html")! as unknown as TFile;
+    await view.onLoadFile(oldFile);
+    const oldScroller =
+      view.contentEl.querySelector<HTMLElement>(".hs-shadow-frame")!;
+    oldScroller.scrollTop = 175;
+    harness.setContent("old.html", '<title>Old</title><img src="image.png">');
+    let finishImageRead: ((content: ArrayBuffer) => void) | undefined;
+    const readBinary = vi
+      .spyOn(harness.app.vault, "readBinary")
+      .mockReturnValueOnce(
+        new Promise<ArrayBuffer>((resolve) => {
+          finishImageRead = resolve;
+        }),
+      );
+
+    const staleReload = view.reload();
+    await vi.waitFor(() => expect(readBinary).toHaveBeenCalledOnce());
+    await view.onLoadFile(harness.file("new.html")! as unknown as TFile);
+    finishImageRead?.(new TextEncoder().encode("image bytes").buffer);
+    await staleReload;
+
+    const newScroller =
+      view.contentEl.querySelector<HTMLElement>(".hs-shadow-frame")!;
+    expect(view.getDisplayText()).toBe("New");
+    expect(newScroller.scrollTop).toBe(0);
+  });
+
+  it("keeps reload available after the file becomes empty", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+      { path: "next.html", content: "<title>Next</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    document.body.append(view.containerEl);
+    const file = harness.file("page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    const initialFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    Object.defineProperty(initialFrame.contentWindow, "scrollY", {
+      value: 160,
+      configurable: true,
+    });
+    harness.setContent("page.html", "");
+
+    await view.reload();
+
+    expect(view.contentEl.textContent).toContain("This file is empty.");
+    expect(view.getDisplayText()).toBe("Page");
+    view.contentEl
+      .querySelector<HTMLButtonElement>('[aria-label="Page actions"]')
+      ?.click();
+    expect(openedMenus[0]?.items[0]).toMatchObject({
+      title: "Reload",
+      icon: "refresh-cw",
+    });
+
+    await view.onLoadFile(harness.file("next.html")! as unknown as TFile);
+    const nextFrame =
+      view.contentEl.querySelector<HTMLIFrameElement>(".hs-frame")!;
+    const scrollTo = vi.fn();
+    Object.defineProperty(nextFrame.contentWindow, "scrollTo", {
+      value: scrollTo,
+      configurable: true,
+    });
+    markFramePrepared(nextFrame);
+    nextFrame.dispatchEvent(new Event("load"));
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("does not reload from a captured menu after the view closes", async () => {
+    const harness = createFakeApp([
+      { path: "page.html", content: "<title>Page</title>" },
+    ]);
+    const plugin = new HtmlShelfPlugin(harness.app, manifest);
+    const view = new HtmlView(createFakeLeaf(harness.app), plugin);
+    const file = harness.file("page.html")! as unknown as TFile;
+    await view.onLoadFile(file);
+    view.contentEl
+      .querySelector<HTMLButtonElement>('[aria-label="Page actions"]')
+      ?.click();
+    const readsBeforeClose = harness.readCount(file.path);
+
+    await view.onClose();
+    await openedMenus[0]?.items[0]?.click();
+
+    expect(harness.readCount(file.path)).toBe(readsBeforeClose);
+    expect(view.contentEl.querySelector(".hs-frame")).not.toBeNull();
   });
 
   it("reacts to css-change without rereading or replacing srcdoc", async () => {

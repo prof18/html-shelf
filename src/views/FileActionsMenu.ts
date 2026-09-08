@@ -1,8 +1,17 @@
 import { Menu, Notice, TFile, type App } from "obsidian";
 import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
 
-export const createFileActionsMenu = (app: App, path: string): Menu => {
+export const createFileActionsMenu = (
+  app: App,
+  path: string,
+  onReload?: () => void,
+): Menu => {
   const menu = new Menu();
+  if (onReload) {
+    menu.addItem((item) =>
+      item.setTitle("Reload").setIcon("refresh-cw").onClick(onReload),
+    );
+  }
   menu.addItem((item) =>
     item
       .setTitle("Copy path")

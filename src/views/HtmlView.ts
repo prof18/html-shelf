@@ -45,6 +45,7 @@ export class HtmlView extends FileView {
   pendingAnchor: string | null = null;
   private pendingScrollY: number | null = null;
   private title: string | null = null;
+  private renderGeneration = 0;
   private frame: HTMLIFrameElement | null = null;
   private frameReadyTimer: number | null = null;
   private shadowScroller: HTMLElement | null = null;
@@ -104,19 +105,52 @@ export class HtmlView extends FileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
+    const generation = ++this.renderGeneration;
     this.file = file;
     let raw: string;
     try {
       raw = await this.app.vault.cachedRead(file);
     } catch {
+      if (generation !== this.renderGeneration || this.file !== file) return;
       this.title = file.basename;
       this.renderMessage("Could not read this file.");
       return;
     }
 
-    this.title = deriveTitle(raw, file.basename);
+    await this.renderFile(file, raw, generation);
+  }
+
+  async reload(): Promise<void> {
+    const file = this.file;
+    if (!file) return;
+    const generation = ++this.renderGeneration;
+
+    let raw: string;
+    try {
+      raw = await this.app.vault.read(file);
+    } catch {
+      if (generation !== this.renderGeneration || this.file !== file) return;
+      new Notice(`Could not reload: ${file.path}`);
+      return;
+    }
+
+    if (generation !== this.renderGeneration || this.file !== file) return;
+    const scrollY = this.currentScrollY();
+    await this.renderFile(file, raw, generation, scrollY);
+  }
+
+  private async renderFile(
+    file: TFile,
+    raw: string,
+    generation: number,
+    reloadScrollY?: number,
+  ): Promise<void> {
     if (raw.length === 0) {
+      if (generation !== this.renderGeneration || this.file !== file) return;
+      this.pendingScrollY = null;
+      this.title = deriveTitle(raw, file.basename);
       this.renderMessage("This file is empty.");
+      this.renderPagebar();
       return;
     }
 
@@ -128,6 +162,8 @@ export class HtmlView extends FileView {
             : Promise.resolve(null);
         })
       : new Map<string, string>();
+    if (generation !== this.renderGeneration || this.file !== file) return;
+    if (reloadScrollY !== undefined) this.pendingScrollY = reloadScrollY;
     const prepared = prepareHtml(raw, {
       filePath: file.path,
       mobile: Platform.isMobile,
@@ -136,6 +172,8 @@ export class HtmlView extends FileView {
         this.app.vault.adapter.getResourcePath(path),
       theme: isDarkTheme() ? "dark" : "light",
     });
+    this.title = deriveTitle(raw, file.basename);
+    this.removeDocumentListener();
     this.contentEl.empty();
     if (Platform.isIosApp) {
       this.mountShadowPage(prepared);
@@ -186,6 +224,8 @@ export class HtmlView extends FileView {
   }
 
   async onUnloadFile(file: TFile): Promise<void> {
+    if (this.file !== null && this.file !== file) return;
+    this.renderGeneration += 1;
     this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
@@ -196,12 +236,14 @@ export class HtmlView extends FileView {
   }
 
   onClose(): Promise<void> {
+    this.renderGeneration += 1;
     this.stopFrameReadyPolling();
     this.removeDocumentListener();
     this.frame = null;
     this.shadowScroller = null;
     this.pageRoot = null;
     this.backButton = null;
+    this.file = null;
     return Promise.resolve();
   }
 
@@ -368,15 +410,17 @@ export class HtmlView extends FileView {
       cls: "hs-pagebar-button clickable-icon",
       attr: {
         type: "button",
-        "aria-label": "Plan actions",
-        title: "Plan actions",
+        "aria-label": "Page actions",
+        title: "Page actions",
       },
     });
     setIcon(actions, "ellipsis-vertical");
     actions.addEventListener("click", (event) => {
       const file = this.file;
       if (!file) return;
-      createFileActionsMenu(this.app, file.path).showAtMouseEvent(event);
+      createFileActionsMenu(this.app, file.path, () => {
+        void this.reload();
+      }).showAtMouseEvent(event);
     });
   }
 
@@ -389,6 +433,7 @@ export class HtmlView extends FileView {
 
   private renderMessage(message: string): void {
     this.stopFrameReadyPolling();
+    this.removeDocumentListener();
     this.contentEl.empty();
     this.frame = null;
     this.shadowScroller = null;

@@ -12,7 +12,7 @@ export default defineConfig({
       provider: "v8",
       include: ["src/**"],
       // The plugin entry point is lifecycle glue covered by manual verification.
-      exclude: ["src/main.ts"],
+      exclude: ["src/main.ts", "**/.DS_Store"],
       thresholds: {
         lines: 80,
         "src/core/**": {

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-09-08
+
+### Added
+
+- Reload an open HTML page from disk through the reader's three-dot actions menu while preserving its scroll position and page history.
+
+### Fixed
+
+- Prevent overlapping reloads, page changes, and unloads from rendering stale content or carrying scroll state into another page.
+- Keep the page actions available when a reload finds an empty file, and preserve the current page when a reload fails.
+
 ## [0.0.5] - 2026-08-22
 
 ### Added
@@ -75,4 +86,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 [0.0.3]: https://github.com/prof18/html-shelf/compare/0.0.2...0.0.3
 [0.0.4]: https://github.com/prof18/html-shelf/compare/0.0.3...0.0.4
 [0.0.5]: https://github.com/prof18/html-shelf/compare/0.0.4...0.0.5
+[0.0.6]: https://github.com/prof18/html-shelf/compare/0.0.5...0.0.6
 [0.0.1]: https://github.com/prof18/html-shelf/releases/tag/0.0.1

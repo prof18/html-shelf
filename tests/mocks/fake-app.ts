@@ -83,6 +83,13 @@ export function createFakeApp(inputs: FakeFileInput[]): FakeAppHarness {
       record.reads += 1;
       return Promise.resolve(record.content);
     },
+    read: (file: MockTFile) => {
+      const record = records.get(file.path);
+      if (!record)
+        return Promise.reject(new Error(`Missing fake file: ${file.path}`));
+      record.reads += 1;
+      return Promise.resolve(record.content);
+    },
     readBinary: (file: MockTFile) => {
       const record = records.get(file.path);
       if (!record)
